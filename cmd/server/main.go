@@ -2,6 +2,7 @@ package main
 
 import (
 	"net/http"
+	"os"
 
 	"github.com/mpkelevra23/arithmetic-web-service/config"
 	"github.com/mpkelevra23/arithmetic-web-service/internal/router"
@@ -46,6 +47,14 @@ func main() {
 
 // initLogger инициализирует логгер Zap с заданным уровнем логирования.
 func initLogger(level string) (*zap.Logger, error) {
+
+	// Убедимся, что директория для логов существует
+	logDir := "logs"
+	if err := os.MkdirAll(logDir, 0755); err != nil {
+		return nil, err
+	}
+	
+	// Настройка конфигурации логгера
 	zapConfig := zap.NewProductionConfig()
 
 	// Установка уровня логирования
