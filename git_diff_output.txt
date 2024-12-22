@@ -1,0 +1,881 @@
+diff --git a/README.md b/README.md
+index dcb67a3..82b346d 100644
+--- a/README.md
++++ b/README.md
+@@ -1,4 +1,4 @@
+-# Веб-сервис Арифметического Калькулятора на Go
++# Веб-сервис Калькулятора на Go
+ 
+ ## Описание проекта
+ 
+diff --git a/cmd/server/main.go b/cmd/server/main.go
+index 7e80d43..b5c3741 100644
+--- a/cmd/server/main.go
++++ b/cmd/server/main.go
+@@ -1,59 +1,54 @@
+-// cmd/server/main.go
+ package main
+ 
+ import (
++	"net/http"
++
+ 	"github.com/mpkelevra23/arithmetic-web-service/config"
+ 	"github.com/mpkelevra23/arithmetic-web-service/internal/router"
+ 	"go.uber.org/zap"
+ 	"go.uber.org/zap/zapcore"
+-	"net/http"
+ )
+ 
+ func main() {
+ 	// Загрузка конфигурации
+ 	cfg, envLoaded, err := config.LoadConfig()
+ 	if err != nil {
+-		// Если произошла ошибка при загрузке конфигурации, логируем и завершаем работу
+-		// Используем Zap вместо log.Fatalf
+ 		zapLogger, _ := zap.NewProduction()
+ 		defer zapLogger.Sync()
+-		zapLogger.Fatal("Ошибка загрузки конфигурации", zap.Error(err))
++		zapLogger.Fatal("Configuration error", zap.Error(err))
+ 	}
+ 
+-	// Настройка логирования Zap
++	// Инициализация логгера с указанным уровнем логирования
+ 	logger, err := initLogger(cfg.LogLevel)
+ 	if err != nil {
+ 		zapLogger, _ := zap.NewProduction()
+ 		defer zapLogger.Sync()
+-		zapLogger.Fatal("Ошибка инициализации логгера", zap.Error(err))
++		zapLogger.Fatal("Logger initialization error", zap.Error(err))
+ 	}
+ 	defer logger.Sync()
+ 
+-	// Логируем информацию о загрузке .env файла
++	// Информация о загрузке .env файла
+ 	if envLoaded {
+-		logger.Info("Файл .env успешно загружен")
++		logger.Info(".env file successfully loaded")
+ 	} else {
+-		logger.Info("Файл .env не найден, используется переменные окружения")
++		logger.Info(".env file not found")
+ 	}
+ 
+-	// Инициализация роутера
++	// Создание маршрутизатора
+ 	r := router.NewRouter(logger)
+ 
+-	// Запуск сервера
+-	logger.Info("Запуск сервера", zap.String("порт", cfg.Port))
++	// Запуск HTTP-сервера
++	logger.Info("Server started", zap.String("port", cfg.Port))
+ 	if err := http.ListenAndServe(":"+cfg.Port, r); err != nil {
+-		logger.Fatal("Сервер завершил работу с ошибкой", zap.Error(err))
++		logger.Fatal("Server error", zap.Error(err))
+ 	}
+ }
+ 
+ // initLogger инициализирует логгер Zap с заданным уровнем логирования.
+ func initLogger(level string) (*zap.Logger, error) {
+-	var zapConfig zap.Config
+-
+-	// Используем конфигурацию по умолчанию
+-	zapConfig = zap.NewProductionConfig()
++	zapConfig := zap.NewProductionConfig()
+ 
+-	// Настройка уровня логирования
++	// Установка уровня логирования
+ 	switch level {
+ 	case "debug":
+ 		zapConfig.Level = zap.NewAtomicLevelAt(zap.DebugLevel)
+@@ -67,7 +62,7 @@ func initLogger(level string) (*zap.Logger, error) {
+ 		zapConfig.Level = zap.NewAtomicLevelAt(zap.InfoLevel)
+ 	}
+ 
+-	// Настройка вывода в консоль и файл
++	// Настройка путей вывода логов
+ 	zapConfig.OutputPaths = []string{
+ 		"stdout",
+ 		"logs/app.log",
+@@ -77,10 +72,10 @@ func initLogger(level string) (*zap.Logger, error) {
+ 		"logs/error.log",
+ 	}
+ 
+-	// Изменяем формат времени
+-    zapConfig.EncoderConfig = zap.NewProductionEncoderConfig()
+-    zapConfig.EncoderConfig.TimeKey = "timestamp" // Измените название ключа времени, если нужно
+-    zapConfig.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
++	// Конфигурация формата времени в логах
++	zapConfig.EncoderConfig = zap.NewProductionEncoderConfig()
++	zapConfig.EncoderConfig.TimeKey = "timestamp"
++	zapConfig.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
+ 
+ 	// Создание логгера
+ 	logger, err := zapConfig.Build()
+diff --git a/config/config.go b/config/config.go
+index e830b4a..df1e221 100644
+--- a/config/config.go
++++ b/config/config.go
+@@ -1,4 +1,3 @@
+-// config/config.go
+ package config
+ 
+ import (
+@@ -6,22 +5,18 @@ import (
+ 	"os"
+ )
+ 
+-// Config представляет конфигурационные параметры приложения.
++// Config содержит конфигурационные параметры приложения.
+ type Config struct {
+ 	Port     string
+ 	LogLevel string
+ }
+ 
+-// LoadConfig загружает конфигурацию из .env файла и переменных окружения.
+-// Возвращает конфигурацию, булевый флаг наличия .env файла и ошибку, если она произошла.
++// LoadConfig загружает конфигурацию из файла .env и переменных окружения.
++// Возвращает конфигурацию, флаг наличия .env файла и ошибку при необходимости.
+ func LoadConfig() (*Config, bool, error) {
+-	// Загрузка переменных из .env файла
++	// Попытка загрузить переменные из .env файла
+ 	err := godotenv.Load()
+-	envLoaded := true
+-	if err != nil {
+-		// Если файл .env не найден, считаем, что переменные окружения уже установлены
+-		envLoaded = false
+-	}
++	envLoaded := err == nil
+ 
+ 	config := &Config{
+ 		Port:     getEnv("PORT", "8080"),
+@@ -31,7 +26,7 @@ func LoadConfig() (*Config, bool, error) {
+ 	return config, envLoaded, nil
+ }
+ 
+-// getEnv получает значение переменной окружения или возвращает значение по умолчанию.
++// getEnv возвращает значение переменной окружения или значение по умолчанию, если переменная не установлена.
+ func getEnv(key, defaultVal string) string {
+ 	if value, exists := os.LookupEnv(key); exists {
+ 		return value
+diff --git a/errors/errors.go b/errors/errors.go
+index 6eecb47..f1daafa 100644
+--- a/errors/errors.go
++++ b/errors/errors.go
+@@ -1,4 +1,3 @@
+-// errors/errors.go
+ package errors
+ 
+ import (
+@@ -11,7 +10,7 @@ type APIError struct {
+ 	Message string `json:"error"`
+ }
+ 
+-// WriteErrorResponse записывает ошибку в ответ клиенту.
++// WriteErrorResponse отправляет ошибку в формате JSON клиенту.
+ func WriteErrorResponse(w http.ResponseWriter, statusCode int, message string) {
+ 	w.Header().Set("Content-Type", "application/json")
+ 	w.WriteHeader(statusCode)
+@@ -23,7 +22,7 @@ func WriteErrorResponse(w http.ResponseWriter, statusCode int, message string) {
+ 	json.NewEncoder(w).Encode(apiErr)
+ }
+ 
+-// Предопределенные ошибки
++// Предопределенные сообщения об ошибках.
+ const (
+ 	ErrInvalidInput      = "Expression is not valid"
+ 	ErrMissingField      = "Missing field: expression"
+diff --git a/internal/calculator/calculator.go b/internal/calculator/calculator.go
+index 63ea2fd..38719a5 100644
+--- a/internal/calculator/calculator.go
++++ b/internal/calculator/calculator.go
+@@ -1,212 +1,183 @@
+ package calculator
+ 
+ import (
+-	"fmt"     // Пакет fmt используется для форматированного ввода и вывода данных.
+-	"strconv" // Пакет strconv предоставляет функции для преобразования типов данных, например, из строк в числа.
++	"fmt"
++	"strconv"
+ )
+ 
+-// TokenType представляет тип токена. Это алиас для строки, используемый для определения различных типов токенов.
++// TokenType представляет тип токена.
+ type TokenType string
+ 
+-// Константы, представляющие различные типы токенов, используемых в арифметическом выражении.
++// Поддерживаемые типы токенов.
+ const (
+-	TokenPlus     TokenType = "+"      // Токен для оператора сложения.
+-	TokenMinus    TokenType = "-"      // Токен для оператора вычитания.
+-	TokenMultiply TokenType = "*"      // Токен для оператора умножения.
+-	TokenDivide   TokenType = "/"      // Токен для оператора деления.
+-	TokenLParen   TokenType = "("      // Токен для открывающей скобки.
+-	TokenRParen   TokenType = ")"      // Токен для закрывающей скобки.
+-	TokenNumber   TokenType = "NUMBER" // Токен для числовых значений.
++	TokenPlus     TokenType = "+"
++	TokenMinus    TokenType = "-"
++	TokenMultiply TokenType = "*"
++	TokenDivide   TokenType = "/"
++	TokenLParen   TokenType = "("
++	TokenRParen   TokenType = ")"
++	TokenNumber   TokenType = "NUMBER"
+ )
+ 
+-// Token представляет собой токен с типом и именем. Используется для хранения информации о каждом токене в выражении.
++// Token представляет токен в выражении.
+ type Token struct {
+-	Type TokenType // Тип токена (например, оператор или число).
+-	Name string    // Строковое представление токена (например, "+", "-", "NUMBER").
++	Type TokenType // Тип токена
++	Name string    // Строковое представление токена
+ }
+ 
+-// Calc вычисляет арифметическое выражение, представленное строкой.
+-// Возвращает результат вычисления как float64 и ошибку, если она возникает.
+-// Метод начинается с большой буквы, что означает, что он является публичным и доступным из других пакетов.
++// Calc вычисляет результат арифметического выражения.
++// Возвращает результат вычисления и ошибку, если она возникла.
+ func Calc(expression string) (float64, error) {
+-	// Разбиваем выражение на токены с помощью функции tokenize.
+ 	tokens := tokenize(expression)
+ 
+-	// Начинаем парсинг выражения с позиции 0, используя функцию parseExpression.
+ 	result, pos, err := parseExpression(tokens, 0)
+ 	if err != nil {
+-		return 0, err // Возвращаем ошибку, если она возникла во время парсинга.
++		return 0, err
+ 	}
+ 
+-	// Проверяем, что все токены были обработаны. Если нет, возвращаем ошибку.
+ 	if pos != len(tokens) {
+-		return 0, fmt.Errorf("неожиданный токен: %s", tokens[pos].Name)
++		return 0, fmt.Errorf("unexpected token: %s", tokens[pos].Name)
+ 	}
+ 
+-	return result, nil // Возвращаем результат вычисления.
++	return result, nil
+ }
+ 
+-// tokenize разбивает строку арифметического выражения на слайс токенов.
+-// Каждый токен представляет собой оператор, скобку или число.
+-// Метод начинается с маленькой буквы, что означает, что он является приватным и доступным только внутри пакета.
++// tokenize разбивает строку на токены.
+ func tokenize(expression string) []Token {
+-	var tokens []Token      // Инициализируем пустой слайс токенов.
+-	var currentToken string // Переменная для накопления символов числа.
++	var tokens []Token
++	var currentToken string
+ 
+-	for _, char := range expression { // Проходим по каждому символу в выражении.
++	for _, char := range expression {
+ 		switch char {
+-		case '+', '-', '*', '/', '(', ')': // Проверяем, является ли символ оператором или скобкой.
+-			if currentToken != "" { // Если есть накопленные символы числа, добавляем их как токен.
++		case '+', '-', '*', '/', '(', ')':
++			if currentToken != "" {
+ 				tokens = append(tokens, Token{Type: TokenNumber, Name: currentToken})
+-				currentToken = "" // Сбрасываем накопитель для числа.
++				currentToken = ""
+ 			}
+-			// Добавляем оператор или скобку как отдельный токен.
+ 			tokens = append(tokens, Token{Type: TokenType(char), Name: string(char)})
+-		case ' ', '\t': // Если символ является пробелом или табуляцией.
+-			if currentToken != "" { // Добавляем накопленное число как токен.
++		case ' ', '\t':
++			if currentToken != "" {
+ 				tokens = append(tokens, Token{Type: TokenNumber, Name: currentToken})
+-				currentToken = "" // Сбрасываем накопитель для числа.
++				currentToken = ""
+ 			}
+-			// Пробелы игнорируются.
+ 		default:
+-			// Добавляем символ к текущему числу.
+ 			currentToken += string(char)
+ 		}
+ 	}
+ 
+-	// После обработки всех символов, если есть накопленное число, добавляем его как токен.
+ 	if currentToken != "" {
+ 		tokens = append(tokens, Token{Type: TokenNumber, Name: currentToken})
+ 	}
+ 
+-	return tokens // Возвращаем слайс токенов.
++	return tokens
+ }
+ 
+-// parseExpression рекурсивно обрабатывает выражение, начиная с позиции pos.
+-// Возвращает результат вычисления, новую позицию и ошибку, если она возникла.
++// parseExpression обрабатывает сложение и вычитание.
+ func parseExpression(tokens []Token, pos int) (float64, int, error) {
+-	// Парсим первый термин выражения.
+ 	left, pos, err := parseTerm(tokens, pos)
+ 	if err != nil {
+-		return 0, pos, err // Возвращаем ошибку, если она возникла.
++		return 0, pos, err
+ 	}
+ 
+-	// Обрабатываем операторы + и -.
+ 	for pos < len(tokens) {
+ 		switch tokens[pos].Type {
+-		case TokenPlus: // Если текущий токен - оператор сложения.
+-			// Парсим следующий термин после оператора +.
++		case TokenPlus:
+ 			right, newPos, err := parseTerm(tokens, pos+1)
+ 			if err != nil {
+-				return 0, newPos, err // Возвращаем ошибку, если она возникла.
++				return 0, newPos, err
+ 			}
+-			left += right // Добавляем правый термин к левому.
+-			pos = newPos  // Обновляем текущую позицию.
+-		case TokenMinus: // Если текущий токен - оператор вычитания.
+-			// Парсим следующий термин после оператора -.
++			left += right
++			pos = newPos
++		case TokenMinus:
+ 			right, newPos, err := parseTerm(tokens, pos+1)
+ 			if err != nil {
+-				return 0, newPos, err // Возвращаем ошибку, если она возникла.
++				return 0, newPos, err
+ 			}
+-			left -= right // Вычитаем правый термин из левого.
+-			pos = newPos  // Обновляем текущую позицию.
++			left -= right
++			pos = newPos
+ 		default:
+-			// Если оператор не + или -, возвращаем текущий результат.
+ 			return left, pos, nil
+ 		}
+ 	}
+ 
+-	return left, pos, nil // Возвращаем итоговый результат и позицию.
++	return left, pos, nil
+ }
+ 
+-// parseTerm обрабатывает умножение и деление, начиная с позиции pos.
+-// Возвращает результат вычисления, новую позицию и ошибку, если она возникла.
++// parseTerm обрабатывает умножение и деление.
+ func parseTerm(tokens []Token, pos int) (float64, int, error) {
+-	// Парсим первый фактор термина.
+ 	left, pos, err := parseFactor(tokens, pos)
+ 	if err != nil {
+-		return 0, pos, err // Возвращаем ошибку, если она возникла.
++		return 0, pos, err
+ 	}
+ 
+-	// Обрабатываем операторы * и /.
+ 	for pos < len(tokens) {
+ 		switch tokens[pos].Type {
+-		case TokenMultiply: // Если текущий токен - оператор умножения.
+-			// Парсим следующий фактор после оператора *.
++		case TokenMultiply:
+ 			right, newPos, err := parseFactor(tokens, pos+1)
+ 			if err != nil {
+-				return 0, newPos, err // Возвращаем ошибку, если она возникла.
++				return 0, newPos, err
+ 			}
+-			left *= right // Умножаем левый фактор на правый.
+-			pos = newPos  // Обновляем текущую позицию.
+-		case TokenDivide: // Если текущий токен - оператор деления.
+-			// Парсим следующий фактор после оператора /.
++			left *= right
++			pos = newPos
++		case TokenDivide:
+ 			right, newPos, err := parseFactor(tokens, pos+1)
+ 			if err != nil {
+-				return 0, newPos, err // Возвращаем ошибку, если она возникла.
++				return 0, newPos, err
+ 			}
+-			// Проверяем деление на ноль.
+ 			if right == 0 {
+-				return 0, newPos, fmt.Errorf("деление на ноль")
++				return 0, newPos, fmt.Errorf("division by zero")
+ 			}
+-			left /= right // Делим левый фактор на правый.
+-			pos = newPos  // Обновляем текущую позицию.
++			left /= right
++			pos = newPos
+ 		default:
+-			// Если оператор не * или /, возвращаем текущий результат.
+ 			return left, pos, nil
+ 		}
+ 	}
+ 
+-	return left, pos, nil // Возвращаем итоговый результат и позицию.
++	return left, pos, nil
+ }
+ 
+-// parseFactor обрабатывает числа и выражения в скобках, начиная с позиции pos.
+-// Возвращает результат вычисления, новую позицию и ошибку, если она возникла.
++// parseFactor обрабатывает числа, унарные операторы и скобки.
++// Возвращает значение, позицию после обработки и ошибку, если она возникла.
+ func parseFactor(tokens []Token, pos int) (float64, int, error) {
+-	// Проверяем, что текущая позиция не выходит за пределы списка токенов.
+ 	if pos >= len(tokens) {
+-		return 0, pos, fmt.Errorf("недостаточно токенов")
++		return 0, pos, fmt.Errorf("insufficient tokens")
+ 	}
+ 
+-	// Обработка унарных операторов + и -.
++	// Обработка унарных операторов
+ 	if tokens[pos].Type == TokenPlus || tokens[pos].Type == TokenMinus {
+-		operator := tokens[pos].Type // Сохраняем оператор.
+-		// Парсим следующий фактор после оператора.
++		operator := tokens[pos].Type
+ 		value, newPos, err := parseFactor(tokens, pos+1)
+ 		if err != nil {
+-			return 0, newPos, err // Возвращаем ошибку, если она возникла.
++			return 0, newPos, err
+ 		}
+ 		if operator == TokenMinus {
+-			return -value, newPos, nil // Инвертируем знак, если оператор -.
++			return -value, newPos, nil
+ 		}
+-		return value, newPos, nil // Возвращаем значение без изменений, если оператор +.
++		return value, newPos, nil
+ 	}
+ 
+-	// Проверяем, является ли токен открывающей скобкой.
++	// Обработка скобок
+ 	if tokens[pos].Type == TokenLParen {
+-		// Парсим выражение внутри скобок.
+ 		result, newPos, err := parseExpression(tokens, pos+1)
+ 		if err != nil {
+-			return 0, newPos, err // Возвращаем ошибку, если она возникла.
++			return 0, newPos, err
+ 		}
+-		// Проверяем наличие закрывающей скобки.
+ 		if newPos >= len(tokens) || tokens[newPos].Type != TokenRParen {
+-			return 0, newPos, fmt.Errorf("отсутствует закрывающая скобка")
++			return 0, newPos, fmt.Errorf("missing closing parenthesis")
+ 		}
+-		// Возвращаем результат выражения внутри скобок и обновленную позицию.
+ 		return result, newPos + 1, nil
+ 	}
+ 
+-	// Если токен не является скобкой, предполагаем, что это число.
++	// Обработка чисел
+ 	if tokens[pos].Type != TokenNumber {
+-		return 0, pos, fmt.Errorf("недопустимый токен: %s", tokens[pos].Name)
++		return 0, pos, fmt.Errorf("invalid token: %s", tokens[pos].Name)
+ 	}
+ 
+-	// Преобразуем строковое представление числа в тип float64.
+ 	num, err := strconv.ParseFloat(tokens[pos].Name, 64)
+ 	if err != nil {
+-		return 0, pos, fmt.Errorf("недопустимый токен: %s", tokens[pos].Name)
++		return 0, pos, fmt.Errorf("invalid number: %s", tokens[pos].Name)
+ 	}
+-	// Возвращаем число и обновленную позицию.
++
+ 	return num, pos + 1, nil
+ }
+diff --git a/internal/handler/calculate_handler.go b/internal/handler/calculate_handler.go
+index ecb1cc2..f25ea74 100644
+--- a/internal/handler/calculate_handler.go
++++ b/internal/handler/calculate_handler.go
+@@ -22,60 +22,55 @@ type CalculateResponse struct {
+ 	Result string `json:"result"`
+ }
+ 
+-// Предкомпилированное регулярное выражение для валидации.
++// expressionRegex используется для валидации допустимых символов в выражении.
+ var expressionRegex = regexp.MustCompile(`^[0-9+\-*/().\s]+$`)
+ 
+-// CalculateHandler обрабатывает запросы к эндпоинту /api/v1/calculate.
++// CalculateHandler обрабатывает POST-запросы к эндпоинту /api/v1/calculate.
+ func CalculateHandler(logger *zap.Logger) http.HandlerFunc {
+ 	return func(w http.ResponseWriter, r *http.Request) {
+ 		var req CalculateRequest
+ 
+-		// Ограничение метода запроса
++		// Проверка метода запроса
+ 		if r.Method != http.MethodPost {
+ 			logger.Warn("Unsupported HTTP method", zap.String("method", r.Method))
+ 			errors.WriteErrorResponse(w, http.StatusMethodNotAllowed, errors.ErrUnsupportedMethod)
+ 			return
+ 		}
+ 
+-		// Декодирование JSON-запроса
++		// Декодирование JSON тела запроса
+ 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+-			logger.Error("Ошибка декодирования запроса", zap.Error(err))
++			logger.Error("Request body decoding error", zap.Error(err))
+ 			errors.WriteErrorResponse(w, http.StatusBadRequest, errors.ErrMalformedJSON)
+ 			return
+ 		}
+ 
+-		// Проверка наличия поля expression
++		// Очистка и проверка поля expression
+ 		expression := strings.TrimSpace(req.Expression)
+ 		if expression == "" {
+-			logger.Error("Отсутствует поле expression")
++			logger.Error("Empty expression field")
+ 			errors.WriteErrorResponse(w, http.StatusUnprocessableEntity, errors.ErrMissingField)
+ 			return
+ 		}
+ 
+ 		// Валидация выражения на допустимые символы
+ 		if !expressionRegex.MatchString(expression) {
+-			logger.Error("Недопустимые символы во входном выражении", zap.String("expression", expression))
++			logger.Error("Invalid characters in expression", zap.String("expression", expression))
+ 			errors.WriteErrorResponse(w, http.StatusUnprocessableEntity, errors.ErrInvalidInput)
+ 			return
+ 		}
+ 
+-		// Дополнительная проверка на длину выражения
++		// Проверка длины выражения
+ 		if len(expression) > 1000 {
+-			logger.Error("Выражение слишком длинное", zap.Int("length", len(expression)))
++			logger.Error("Expression is too long", zap.Int("length", len(expression)))
+ 			errors.WriteErrorResponse(w, http.StatusUnprocessableEntity, errors.ErrTooLongExpression)
+ 			return
+ 		}
+ 
+-		// Вычисление результата
++		// Вычисление результата выражения
+ 		result, err := calculator.Calc(expression)
+ 		if err != nil {
+-			logger.Error("Ошибка вычисления выражения", zap.Error(err))
+-			switch err.Error() {
+-			case "деление на ноль":
+-				errors.WriteErrorResponse(w, http.StatusUnprocessableEntity, errors.ErrDivisionByZero)
+-			default:
+-				errors.WriteErrorResponse(w, http.StatusUnprocessableEntity, errors.ErrInvalidExpression)
+-			}
++			logger.Error("Calculation error", zap.Error(err))
++			handleCalculationError(w, err)
+ 			return
+ 		}
+ 
+@@ -87,14 +82,23 @@ func CalculateHandler(logger *zap.Logger) http.HandlerFunc {
+ 		w.Header().Set("Content-Type", "application/json")
+ 		w.WriteHeader(http.StatusOK)
+ 		if err := json.NewEncoder(w).Encode(resp); err != nil {
+-			logger.Error("Ошибка кодирования ответа", zap.Error(err))
++			logger.Error("Response encoding error", zap.Error(err))
+ 		}
+ 	}
+ }
+ 
++// handleCalculationError обрабатывает ошибки, возникшие при вычислении выражения.
++func handleCalculationError(w http.ResponseWriter, err error) {
++	switch err.Error() {
++	case "division by zero":
++		errors.WriteErrorResponse(w, http.StatusUnprocessableEntity, errors.ErrDivisionByZero)
++	default:
++		errors.WriteErrorResponse(w, http.StatusUnprocessableEntity, errors.ErrInvalidExpression)
++	}
++}
++
+ // formatResult форматирует результат вычисления, убирая лишние нули.
+ func formatResult(result float64) string {
+-	// Если число целое, представляем без десятичной части
+ 	if result == float64(int64(result)) {
+ 		return strconv.FormatInt(int64(result), 10)
+ 	}
+diff --git a/internal/middleware/logging_middleware.go b/internal/middleware/logging_middleware.go
+index 524139b..3e1e645 100644
+--- a/internal/middleware/logging_middleware.go
++++ b/internal/middleware/logging_middleware.go
+@@ -1,4 +1,3 @@
+-// internal/middleware/logging_middleware.go
+ package middleware
+ 
+ import (
+@@ -7,19 +6,19 @@ import (
+ 	"time"
+ )
+ 
+-// LoggingMiddleware логирует все входящие HTTP-запросы.
++// LoggingMiddleware логирует все входящие HTTP-запросы с информацией о методе, URL, статусе и времени обработки.
+ func LoggingMiddleware(logger *zap.Logger) func(http.Handler) http.Handler {
+ 	return func(next http.Handler) http.Handler {
+ 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+ 			start := time.Now()
+ 
+-			// Используем ResponseWriter, который захватывает статус код
++			// Используем обёртку для захвата статус кода ответа
+ 			lrw := &loggingResponseWriter{ResponseWriter: w, statusCode: http.StatusOK}
+ 			next.ServeHTTP(lrw, r)
+ 
+ 			duration := time.Since(start)
+ 
+-			logger.Info("Входящий запрос",
++			logger.Info("Request",
+ 				zap.String("method", r.Method),
+ 				zap.String("url", r.URL.String()),
+ 				zap.Int("status", lrw.statusCode),
+@@ -35,7 +34,7 @@ type loggingResponseWriter struct {
+ 	statusCode int
+ }
+ 
+-// WriteHeader захватывает статус код.
++// WriteHeader сохраняет статус код ответа и передаёт его далее.
+ func (lrw *loggingResponseWriter) WriteHeader(code int) {
+ 	lrw.statusCode = code
+ 	lrw.ResponseWriter.WriteHeader(code)
+diff --git a/internal/router/router.go b/internal/router/router.go
+index 71ce369..028e325 100644
+--- a/internal/router/router.go
++++ b/internal/router/router.go
+@@ -1,21 +1,21 @@
+ package router
+ 
+ import (
++	"net/http"
++
+ 	"github.com/mpkelevra23/arithmetic-web-service/internal/handler"
+ 	"github.com/mpkelevra23/arithmetic-web-service/internal/middleware"
+ 	"go.uber.org/zap"
+-	"net/http"
+ )
+ 
+-// NewRouter настраивает маршруты и middleware.
++// NewRouter настраивает маршруты и применяет middleware.
+ func NewRouter(logger *zap.Logger) http.Handler {
+ 	mux := http.NewServeMux()
+ 
+-	// Обработчики
+-	calculateHandler := handler.CalculateHandler(logger)
+-	mux.Handle("/api/v1/calculate", calculateHandler)
++	// Регистрация обработчика для эндпоинта /api/v1/calculate
++	mux.Handle("/api/v1/calculate", handler.CalculateHandler(logger))
+ 
+-	// Применение middleware
++	// Применение middleware для логирования запросов
+ 	loggedRouter := middleware.LoggingMiddleware(logger)(mux)
+ 
+ 	return loggedRouter
+diff --git a/logs/app.log b/logs/app.log
+index 959e963..61f2626 100644
+--- a/logs/app.log
++++ b/logs/app.log
+@@ -52,3 +52,21 @@
+ {"level":"info","timestamp":"2024-12-22T16:59:11.367+0400","caller":"middleware/logging_middleware.go:22","msg":"Входящий запрос","method":"POST","url":"/api/v1/calculate","status":200,"duration":0.000041346}
+ {"level":"error","timestamp":"2024-12-22T17:00:07.559+0400","caller":"handler/calculate_handler.go:72","msg":"Ошибка вычисления выражения","error":"отсутствует закрывающая скобка","stacktrace":"github.com/mpkelevra23/arithmetic-web-service/internal/router.NewRouter.CalculateHandler.func1\n\t/home/mpkelevra23/Documents/GolandProjects/arithmetic-web-service/internal/handler/calculate_handler.go:72\nnet/http.HandlerFunc.ServeHTTP\n\t/usr/lib/go/src/net/http/server.go:2220\nnet/http.(*ServeMux).ServeHTTP\n\t/usr/lib/go/src/net/http/server.go:2747\ngithub.com/mpkelevra23/arithmetic-web-service/internal/router.NewRouter.NewRouter.LoggingMiddleware.func2.func3\n\t/home/mpkelevra23/Documents/GolandProjects/arithmetic-web-service/internal/middleware/logging_middleware.go:18\nnet/http.HandlerFunc.ServeHTTP\n\t/usr/lib/go/src/net/http/server.go:2220\nnet/http.serverHandler.ServeHTTP\n\t/usr/lib/go/src/net/http/server.go:3210\nnet/http.(*conn).serve\n\t/usr/lib/go/src/net/http/server.go:2092"}
+ {"level":"info","timestamp":"2024-12-22T17:00:07.559+0400","caller":"middleware/logging_middleware.go:22","msg":"Входящий запрос","method":"POST","url":"/api/v1/calculate","status":422,"duration":0.000126762}
++{"level":"info","timestamp":"2024-12-22T17:35:18.282+0400","caller":"middleware/logging_middleware.go:22","msg":"Входящий запрос","method":"POST","url":"/api/v1/calculate","status":200,"duration":0.000039111}
++{"level":"info","timestamp":"2024-12-22T18:21:46.897+0400","caller":"server/main.go:32","msg":"Файл .env успешно загружен"}
++{"level":"info","timestamp":"2024-12-22T18:21:46.897+0400","caller":"server/main.go:41","msg":"Запуск сервера","порт":"8080"}
++{"level":"error","timestamp":"2024-12-22T18:22:18.079+0400","caller":"handler/calculate_handler.go:72","msg":"Ошибка вычисления выражения","error":"missing closing parenthesis","stacktrace":"github.com/mpkelevra23/arithmetic-web-service/internal/router.NewRouter.CalculateHandler.func1\n\t/home/mpkelevra23/Documents/GolandProjects/arithmetic-web-service/internal/handler/calculate_handler.go:72\nnet/http.HandlerFunc.ServeHTTP\n\t/usr/lib/go/src/net/http/server.go:2220\nnet/http.(*ServeMux).ServeHTTP\n\t/usr/lib/go/src/net/http/server.go:2747\ngithub.com/mpkelevra23/arithmetic-web-service/internal/router.NewRouter.NewRouter.LoggingMiddleware.func2.func3\n\t/home/mpkelevra23/Documents/GolandProjects/arithmetic-web-service/internal/middleware/logging_middleware.go:17\nnet/http.HandlerFunc.ServeHTTP\n\t/usr/lib/go/src/net/http/server.go:2220\nnet/http.serverHandler.ServeHTTP\n\t/usr/lib/go/src/net/http/server.go:3210\nnet/http.(*conn).serve\n\t/usr/lib/go/src/net/http/server.go:2092"}
++{"level":"info","timestamp":"2024-12-22T18:22:18.079+0400","caller":"middleware/logging_middleware.go:21","msg":"Входящий запрос","method":"POST","url":"/api/v1/calculate","status":422,"duration":0.000121106}
++{"level":"info","timestamp":"2024-12-22T18:24:49.501+0400","caller":"server/main.go:32","msg":"Файл .env успешно загружен"}
++{"level":"info","timestamp":"2024-12-22T18:24:49.501+0400","caller":"server/main.go:41","msg":"Запуск сервера","порт":"8080"}
++{"level":"fatal","timestamp":"2024-12-22T18:24:49.501+0400","caller":"server/main.go:43","msg":"Сервер завершил работу с ошибкой","error":"listen tcp :8080: bind: address already in use","stacktrace":"main.main\n\t/home/mpkelevra23/Documents/GolandProjects/arithmetic-web-service/cmd/server/main.go:43\nruntime.main\n\t/usr/lib/go/src/runtime/proc.go:272"}
++{"level":"info","timestamp":"2024-12-22T18:24:56.757+0400","caller":"server/main.go:32","msg":"Файл .env успешно загружен"}
++{"level":"info","timestamp":"2024-12-22T18:24:56.758+0400","caller":"server/main.go:41","msg":"Запуск сервера","порт":"8080"}
++{"level":"error","timestamp":"2024-12-22T18:25:09.335+0400","caller":"handler/calculate_handler.go:72","msg":"Calculation error","error":"missing closing parenthesis","stacktrace":"github.com/mpkelevra23/arithmetic-web-service/internal/router.NewRouter.CalculateHandler.func1\n\t/home/mpkelevra23/Documents/GolandProjects/arithmetic-web-service/internal/handler/calculate_handler.go:72\nnet/http.HandlerFunc.ServeHTTP\n\t/usr/lib/go/src/net/http/server.go:2220\nnet/http.(*ServeMux).ServeHTTP\n\t/usr/lib/go/src/net/http/server.go:2747\ngithub.com/mpkelevra23/arithmetic-web-service/internal/router.NewRouter.NewRouter.LoggingMiddleware.func2.func3\n\t/home/mpkelevra23/Documents/GolandProjects/arithmetic-web-service/internal/middleware/logging_middleware.go:17\nnet/http.HandlerFunc.ServeHTTP\n\t/usr/lib/go/src/net/http/server.go:2220\nnet/http.serverHandler.ServeHTTP\n\t/usr/lib/go/src/net/http/server.go:3210\nnet/http.(*conn).serve\n\t/usr/lib/go/src/net/http/server.go:2092"}
++{"level":"info","timestamp":"2024-12-22T18:25:09.335+0400","caller":"middleware/logging_middleware.go:21","msg":"Входящий запрос","method":"POST","url":"/api/v1/calculate","status":422,"duration":0.000117334}
++{"level":"info","timestamp":"2024-12-22T18:26:47.498+0400","caller":"middleware/logging_middleware.go:21","msg":"Входящий запрос","method":"POST","url":"/api/v1/calculate","status":200,"duration":0.000047772}
++{"level":"error","timestamp":"2024-12-22T18:27:12.867+0400","caller":"handler/calculate_handler.go:72","msg":"Calculation error","error":"missing closing parenthesis","stacktrace":"github.com/mpkelevra23/arithmetic-web-service/internal/router.NewRouter.CalculateHandler.func1\n\t/home/mpkelevra23/Documents/GolandProjects/arithmetic-web-service/internal/handler/calculate_handler.go:72\nnet/http.HandlerFunc.ServeHTTP\n\t/usr/lib/go/src/net/http/server.go:2220\nnet/http.(*ServeMux).ServeHTTP\n\t/usr/lib/go/src/net/http/server.go:2747\ngithub.com/mpkelevra23/arithmetic-web-service/internal/router.NewRouter.NewRouter.LoggingMiddleware.func2.func3\n\t/home/mpkelevra23/Documents/GolandProjects/arithmetic-web-service/internal/middleware/logging_middleware.go:17\nnet/http.HandlerFunc.ServeHTTP\n\t/usr/lib/go/src/net/http/server.go:2220\nnet/http.serverHandler.ServeHTTP\n\t/usr/lib/go/src/net/http/server.go:3210\nnet/http.(*conn).serve\n\t/usr/lib/go/src/net/http/server.go:2092"}
++{"level":"info","timestamp":"2024-12-22T18:27:12.867+0400","caller":"middleware/logging_middleware.go:21","msg":"Входящий запрос","method":"POST","url":"/api/v1/calculate","status":422,"duration":0.000191366}
++{"level":"error","timestamp":"2024-12-22T18:28:26.090+0400","caller":"handler/calculate_handler.go:72","msg":"Calculation error","error":"division by zero","stacktrace":"github.com/mpkelevra23/arithmetic-web-service/internal/router.NewRouter.CalculateHandler.func1\n\t/home/mpkelevra23/Documents/GolandProjects/arithmetic-web-service/internal/handler/calculate_handler.go:72\nnet/http.HandlerFunc.ServeHTTP\n\t/usr/lib/go/src/net/http/server.go:2220\nnet/http.(*ServeMux).ServeHTTP\n\t/usr/lib/go/src/net/http/server.go:2747\ngithub.com/mpkelevra23/arithmetic-web-service/internal/router.NewRouter.NewRouter.LoggingMiddleware.func2.func3\n\t/home/mpkelevra23/Documents/GolandProjects/arithmetic-web-service/internal/middleware/logging_middleware.go:17\nnet/http.HandlerFunc.ServeHTTP\n\t/usr/lib/go/src/net/http/server.go:2220\nnet/http.serverHandler.ServeHTTP\n\t/usr/lib/go/src/net/http/server.go:3210\nnet/http.(*conn).serve\n\t/usr/lib/go/src/net/http/server.go:2092"}
++{"level":"info","timestamp":"2024-12-22T18:28:26.090+0400","caller":"middleware/logging_middleware.go:21","msg":"Входящий запрос","method":"POST","url":"/api/v1/calculate","status":422,"duration":0.000100712}
++{"level":"info","timestamp":"2024-12-22T18:29:14.430+0400","caller":"middleware/logging_middleware.go:21","msg":"Входящий запрос","method":"POST","url":"/api/v1/calculate","status":200,"duration":0.000038203}
+diff --git a/tests/calculator_test.go b/tests/calculator_test.go
+index 6b611e4..947f5ec 100644
+--- a/tests/calculator_test.go
++++ b/tests/calculator_test.go
+@@ -1,17 +1,18 @@
+ package tests
+ 
+ import (
+-	"github.com/mpkelevra23/arithmetic-web-service/internal/calculator"
+ 	"testing"
++
++	"github.com/mpkelevra23/arithmetic-web-service/internal/calculator"
+ )
+ 
+ // TestCalc проверяет корректность работы функции Calc(expression string) (float64, error).
+ func TestCalc(t *testing.T) {
+ 	tests := []struct {
+-		name     string  // Имя теста
+-		expr     string  // Входное выражение
+-		expected float64 // Ожидаемый результат
+-		err      bool    // Ожидается ли ошибка
++		name     string
++		expr     string
++		expected float64
++		err      bool
+ 	}{
+ 		{
+ 			name:     "Простое сложение",
+@@ -40,7 +41,7 @@ func TestCalc(t *testing.T) {
+ 		{
+ 			name:     "Сложное выражение",
+ 			expr:     "3 + 4 * 2 / (1 - 5) * 2 + 3",
+-			expected: 3 + 4*2/(1-5)*2 + 3, // Вычисляется как 3 + (8)/(-4)*2 + 3 = 3 -4 +3 = 2
++			expected: 2,
+ 			err:      false,
+ 		},
+ 		{
+@@ -88,13 +89,13 @@ func TestCalc(t *testing.T) {
+ 		{
+ 			name:     "Многоступенчатые скобки",
+ 			expr:     "((2 + 3) * (4 - 1)) / 5",
+-			expected: ((2 + 3) * (4 - 1)) / 5, // (5 * 3)/5 = 3
++			expected: 3, // (5 * 3)/5 = 3
+ 			err:      false,
+ 		},
+ 		{
+ 			name:     "Выражение с пробелами и табуляциями",
+ 			expr:     "  7 \t* ( 8 + 2 ) ",
+-			expected: 7 * (8 + 2), // 7 * 10 = 70
++			expected: 70, // 7 * 10 = 70
+ 			err:      false,
+ 		},
+ 		{
+@@ -111,17 +112,16 @@ func TestCalc(t *testing.T) {
+ 		},
+ 	}
+ 
+-	// Проходим по всем тестовым случаям.
+ 	for _, tt := range tests {
+ 		t.Run(tt.name, func(t *testing.T) {
+ 			result, err := calculator.Calc(tt.expr)
+ 			if tt.err {
+-				// Если ожидается ошибка, проверяем её наличие.
++				// Проверяем наличие ожидаемой ошибки
+ 				if err == nil {
+ 					t.Errorf("Calc(%q) = %v, ожидается ошибка", tt.expr, result)
+ 				}
+ 			} else {
+-				// Если ошибка не ожидается, проверяем её отсутствие.
++				// Проверяем отсутствие ошибки и соответствие результата
+ 				if err != nil {
+ 					t.Errorf("Calc(%q) вернул ошибку: %v, ожидается %v", tt.expr, err, tt.expected)
+ 				} else if result != tt.expected {
+diff --git a/tests/handler_test.go b/tests/handler_test.go
+index 20f4f9a..8abd307 100644
+--- a/tests/handler_test.go
++++ b/tests/handler_test.go
+@@ -1,17 +1,18 @@
+-// tests/handler_test.go
+ package tests
+ 
+ import (
+ 	"bytes"
+ 	"encoding/json"
++	"testing"
++
+ 	"github.com/mpkelevra23/arithmetic-web-service/errors"
+ 	"github.com/mpkelevra23/arithmetic-web-service/internal/handler"
+ 	"go.uber.org/zap"
+ 	"net/http"
+ 	"net/http/httptest"
+-	"testing"
+ )
+ 
++// TestCalculateHandler проверяет работу HTTP-обработчика CalculateHandler.
+ func TestCalculateHandler(t *testing.T) {
+ 	// Инициализация логгера
+ 	logger, err := zap.NewDevelopment()
+@@ -29,7 +30,7 @@ func TestCalculateHandler(t *testing.T) {
+ 		method         string
+ 		payload        interface{}
+ 		expectedStatus int
+-		expectedBody   interface{}
++		expectedBody   map[string]string
+ 	}{
+ 		{
+ 			name:   "Valid Expression",
+@@ -88,17 +89,17 @@ func TestCalculateHandler(t *testing.T) {
+ 		},
+ 		{
+ 			name:           "Unsupported HTTP Method",
+-			method:         http.MethodGet, // Используем метод, который не поддерживается
+-			payload:        nil,              // Нет тела запроса
++			method:         http.MethodGet, // Используем неподдерживаемый метод
++			payload:        nil,            // Нет тела запроса
+ 			expectedStatus: http.StatusMethodNotAllowed,
+ 			expectedBody: map[string]string{
+ 				"error": errors.ErrUnsupportedMethod,
+ 			},
+ 		},
+ 		{
+-			name:   "Malformed JSON",
+-			method: http.MethodPost,
+-			payload: `{"expression": "1 + 2",`, // Неправильный JSON
++			name:           "Malformed JSON",
++			method:         http.MethodPost,
++			payload:        `{"expression": "1 + 2",`, // Неправильный JSON
+ 			expectedStatus: http.StatusBadRequest,
+ 			expectedBody: map[string]string{
+ 				"error": errors.ErrMalformedJSON,
+@@ -122,7 +123,7 @@ func TestCalculateHandler(t *testing.T) {
+ 			var reqBody []byte
+ 			var err error
+ 
+-			// Определение тела запроса
++			// Подготовка тела запроса
+ 			switch payload := tt.payload.(type) {
+ 			case string:
+ 				reqBody = []byte(payload)
+@@ -159,7 +160,7 @@ func TestCalculateHandler(t *testing.T) {
+ 			}
+ 
+ 			// Проверка соответствия ожидаемого и фактического тела ответа
+-			for key, expectedValue := range tt.expectedBody.(map[string]string) {
++			for key, expectedValue := range tt.expectedBody {
+ 				if value, exists := responseBody[key]; !exists || value != expectedValue {
+ 					t.Errorf("Для ключа '%s' ожидалось '%s', получено '%s'", key, expectedValue, value)
+ 				}
+@@ -168,7 +169,7 @@ func TestCalculateHandler(t *testing.T) {
+ 	}
+ }
+ 
+-// generateLongExpression генерирует строку с заданным количеством символов для теста "Expression Too Long"
++// generateLongExpression создает строку арифметического выражения заданной длины.
+ func generateLongExpression(length int) string {
+ 	expression := ""
+ 	for i := 0; i < length; i++ {
+diff --git a/tests/middleware_test.go b/tests/middleware_test.go
+index 66b1ef8..0a455de 100644
+--- a/tests/middleware_test.go
++++ b/tests/middleware_test.go
+@@ -1,25 +1,31 @@
+ package tests
+ 
+ import (
+-	"github.com/mpkelevra23/arithmetic-web-service/internal/middleware"
+-	"go.uber.org/zap"
+ 	"net/http"
+ 	"net/http/httptest"
+ 	"testing"
+ 	"time"
++
++	"github.com/mpkelevra23/arithmetic-web-service/internal/middleware"
++	"go.uber.org/zap"
+ )
+ 
++// TestLoggingMiddleware проверяет, что LoggingMiddleware корректно обрабатывает запросы.
+ func TestLoggingMiddleware(t *testing.T) {
+-	logger, _ := zap.NewDevelopment()
++	// Инициализация логгера
++	logger, err := zap.NewDevelopment()
++	if err != nil {
++		t.Fatalf("Не удалось инициализировать логгер: %v", err)
++	}
+ 	defer logger.Sync()
+ 
+-	// Тестовый обработчик, который просто возвращает статус 200
++	// Тестовый обработчик, который возвращает статус 200
+ 	testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+-		time.Sleep(10 * time.Millisecond) // Имитация задержки
++		time.Sleep(10 * time.Millisecond) // Имитация задержки обработки
+ 		w.WriteHeader(http.StatusOK)
+ 	})
+ 
+-	// Обертываем тестовый обработчик в middleware
++	// Оборачиваем тестовый обработчик в middleware
+ 	loggedHandler := middleware.LoggingMiddleware(logger)(testHandler)
+ 
+ 	// Создаем тестовый запрос
+@@ -29,7 +35,7 @@ func TestLoggingMiddleware(t *testing.T) {
+ 	// Выполняем запрос
+ 	loggedHandler.ServeHTTP(w, req)
+ 
+-	// Проверяем статус код
++	// Проверяем статус код ответа
+ 	if w.Result().StatusCode != http.StatusOK {
+ 		t.Errorf("Ожидался статус 200, получен %d", w.Result().StatusCode)
+ 	}

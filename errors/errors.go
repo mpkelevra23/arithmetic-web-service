@@ -1,4 +1,3 @@
-// errors/errors.go
 package errors
 
 import (
@@ -11,7 +10,7 @@ type APIError struct {
 	Message string `json:"error"`
 }
 
-// WriteErrorResponse записывает ошибку в ответ клиенту.
+// WriteErrorResponse отправляет ошибку в формате JSON клиенту.
 func WriteErrorResponse(w http.ResponseWriter, statusCode int, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
@@ -23,7 +22,7 @@ func WriteErrorResponse(w http.ResponseWriter, statusCode int, message string) {
 	json.NewEncoder(w).Encode(apiErr)
 }
 
-// Предопределенные ошибки
+// Предопределенные сообщения об ошибках.
 const (
 	ErrInvalidInput      = "Expression is not valid"
 	ErrMissingField      = "Missing field: expression"

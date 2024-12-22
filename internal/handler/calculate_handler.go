@@ -22,60 +22,55 @@ type CalculateResponse struct {
 	Result string `json:"result"`
 }
 
-// Предкомпилированное регулярное выражение для валидации.
+// expressionRegex используется для валидации допустимых символов в выражении.
 var expressionRegex = regexp.MustCompile(`^[0-9+\-*/().\s]+$`)
 
-// CalculateHandler обрабатывает запросы к эндпоинту /api/v1/calculate.
+// CalculateHandler обрабатывает POST-запросы к эндпоинту /api/v1/calculate.
 func CalculateHandler(logger *zap.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req CalculateRequest
 
-		// Ограничение метода запроса
+		// Проверка метода запроса
 		if r.Method != http.MethodPost {
 			logger.Warn("Unsupported HTTP method", zap.String("method", r.Method))
 			errors.WriteErrorResponse(w, http.StatusMethodNotAllowed, errors.ErrUnsupportedMethod)
 			return
 		}
 
-		// Декодирование JSON-запроса
+		// Декодирование JSON тела запроса
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			logger.Error("Ошибка декодирования запроса", zap.Error(err))
+			logger.Error("Request body decoding error", zap.Error(err))
 			errors.WriteErrorResponse(w, http.StatusBadRequest, errors.ErrMalformedJSON)
 			return
 		}
 
-		// Проверка наличия поля expression
+		// Очистка и проверка поля expression
 		expression := strings.TrimSpace(req.Expression)
 		if expression == "" {
-			logger.Error("Отсутствует поле expression")
+			logger.Error("Empty expression field")
 			errors.WriteErrorResponse(w, http.StatusUnprocessableEntity, errors.ErrMissingField)
 			return
 		}
 
 		// Валидация выражения на допустимые символы
 		if !expressionRegex.MatchString(expression) {
-			logger.Error("Недопустимые символы во входном выражении", zap.String("expression", expression))
+			logger.Error("Invalid characters in expression", zap.String("expression", expression))
 			errors.WriteErrorResponse(w, http.StatusUnprocessableEntity, errors.ErrInvalidInput)
 			return
 		}
 
-		// Дополнительная проверка на длину выражения
+		// Проверка длины выражения
 		if len(expression) > 1000 {
-			logger.Error("Выражение слишком длинное", zap.Int("length", len(expression)))
+			logger.Error("Expression is too long", zap.Int("length", len(expression)))
 			errors.WriteErrorResponse(w, http.StatusUnprocessableEntity, errors.ErrTooLongExpression)
 			return
 		}
 
-		// Вычисление результата
+		// Вычисление результата выражения
 		result, err := calculator.Calc(expression)
 		if err != nil {
-			logger.Error("Ошибка вычисления выражения", zap.Error(err))
-			switch err.Error() {
-			case "деление на ноль":
-				errors.WriteErrorResponse(w, http.StatusUnprocessableEntity, errors.ErrDivisionByZero)
-			default:
-				errors.WriteErrorResponse(w, http.StatusUnprocessableEntity, errors.ErrInvalidExpression)
-			}
+			logger.Error("Calculation error", zap.Error(err))
+			handleCalculationError(w, err)
 			return
 		}
 
@@ -87,14 +82,23 @@ func CalculateHandler(logger *zap.Logger) http.HandlerFunc {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		if err := json.NewEncoder(w).Encode(resp); err != nil {
-			logger.Error("Ошибка кодирования ответа", zap.Error(err))
+			logger.Error("Response encoding error", zap.Error(err))
 		}
+	}
+}
+
+// handleCalculationError обрабатывает ошибки, возникшие при вычислении выражения.
+func handleCalculationError(w http.ResponseWriter, err error) {
+	switch err.Error() {
+	case "division by zero":
+		errors.WriteErrorResponse(w, http.StatusUnprocessableEntity, errors.ErrDivisionByZero)
+	default:
+		errors.WriteErrorResponse(w, http.StatusUnprocessableEntity, errors.ErrInvalidExpression)
 	}
 }
 
 // formatResult форматирует результат вычисления, убирая лишние нули.
 func formatResult(result float64) string {
-	// Если число целое, представляем без десятичной части
 	if result == float64(int64(result)) {
 		return strconv.FormatInt(int64(result), 10)
 	}

@@ -1,4 +1,3 @@
-// internal/middleware/logging_middleware.go
 package middleware
 
 import (
@@ -7,19 +6,19 @@ import (
 	"time"
 )
 
-// LoggingMiddleware логирует все входящие HTTP-запросы.
+// LoggingMiddleware логирует все входящие HTTP-запросы с информацией о методе, URL, статусе и времени обработки.
 func LoggingMiddleware(logger *zap.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			start := time.Now()
 
-			// Используем ResponseWriter, который захватывает статус код
+			// Используем обёртку для захвата статус кода ответа
 			lrw := &loggingResponseWriter{ResponseWriter: w, statusCode: http.StatusOK}
 			next.ServeHTTP(lrw, r)
 
 			duration := time.Since(start)
 
-			logger.Info("Входящий запрос",
+			logger.Info("Request",
 				zap.String("method", r.Method),
 				zap.String("url", r.URL.String()),
 				zap.Int("status", lrw.statusCode),
@@ -35,7 +34,7 @@ type loggingResponseWriter struct {
 	statusCode int
 }
 
-// WriteHeader захватывает статус код.
+// WriteHeader сохраняет статус код ответа и передаёт его далее.
 func (lrw *loggingResponseWriter) WriteHeader(code int) {
 	lrw.statusCode = code
 	lrw.ResponseWriter.WriteHeader(code)

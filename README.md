@@ -1,4 +1,4 @@
-# Веб-сервис Арифметического Калькулятора на Go
+# Веб-сервис Калькулятора на Go
 
 ## Описание проекта
 
@@ -54,7 +54,7 @@ go run ./cmd/server/main.go
 **Запрос:**
 
 ```bash
-curl --location 'http://localhost:8080/api/v1/calculate' \
+curl -i --location 'http://localhost:8080/api/v1/calculate' \
 --header 'Content-Type: application/json' \
 --data '{
   "expression": "2+2*2"
@@ -78,7 +78,7 @@ curl --location 'http://localhost:8080/api/v1/calculate' \
 **Запрос:**
 
 ```bash
-curl --location 'http://localhost:8080/api/v1/calculate' \
+curl -i --location 'http://localhost:8080/api/v1/calculate' \
 --header 'Content-Type: application/json' \
 --data '{
   "expression": "2+2a"
@@ -100,7 +100,7 @@ curl --location 'http://localhost:8080/api/v1/calculate' \
 **Запрос:**
 
 ```bash
-curl --location 'http://localhost:8080/api/v1/calculate' \
+curl -i --location 'http://localhost:8080/api/v1/calculate' \
 --header 'Content-Type: application/json' \
 --data '{
   "expression": "10/0"
@@ -120,7 +120,7 @@ curl --location 'http://localhost:8080/api/v1/calculate' \
 **Запрос:**
 
 ```bash
-curl --location 'http://localhost:8080/api/v1/calculate' \
+curl -i --location 'http://localhost:8080/api/v1/calculate' \
 --header 'Content-Type: application/json' \
 --data '{
   "expr": "2+2"
@@ -167,7 +167,7 @@ go test ./tests/...
 **Запрос:**
 
 ```bash
-curl --location 'http://localhost:8080/api/v1/calculate' \
+curl -i --location 'http://localhost:8080/api/v1/calculate' \
 --header 'Content-Type: application/json' \
 --data '{
   "expression": "(2+3)*4 - 5/5"
@@ -187,7 +187,7 @@ curl --location 'http://localhost:8080/api/v1/calculate' \
 **Запрос:**
 
 ```bash
-curl --location 'http://localhost:8080/api/v1/calculate' \
+curl -i --location 'http://localhost:8080/api/v1/calculate' \
 --header 'Content-Type: application/json' \
 --data '{
   "expression": "-5 + 3"
@@ -207,7 +207,7 @@ curl --location 'http://localhost:8080/api/v1/calculate' \
 **Запрос:**
 
 ```bash
-curl --location 'http://localhost:8080/api/v1/calculate' \
+curl -i --location 'http://localhost:8080/api/v1/calculate' \
 --header 'Content-Type: application/json' \
 --data '{
   "expression": "3.5 * 2"

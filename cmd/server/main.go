@@ -1,59 +1,54 @@
-// cmd/server/main.go
 package main
 
 import (
+	"net/http"
+
 	"github.com/mpkelevra23/arithmetic-web-service/config"
 	"github.com/mpkelevra23/arithmetic-web-service/internal/router"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-	"net/http"
 )
 
 func main() {
 	// Загрузка конфигурации
 	cfg, envLoaded, err := config.LoadConfig()
 	if err != nil {
-		// Если произошла ошибка при загрузке конфигурации, логируем и завершаем работу
-		// Используем Zap вместо log.Fatalf
 		zapLogger, _ := zap.NewProduction()
 		defer zapLogger.Sync()
-		zapLogger.Fatal("Ошибка загрузки конфигурации", zap.Error(err))
+		zapLogger.Fatal("Configuration error", zap.Error(err))
 	}
 
-	// Настройка логирования Zap
+	// Инициализация логгера с указанным уровнем логирования
 	logger, err := initLogger(cfg.LogLevel)
 	if err != nil {
 		zapLogger, _ := zap.NewProduction()
 		defer zapLogger.Sync()
-		zapLogger.Fatal("Ошибка инициализации логгера", zap.Error(err))
+		zapLogger.Fatal("Logger initialization error", zap.Error(err))
 	}
 	defer logger.Sync()
 
-	// Логируем информацию о загрузке .env файла
+	// Информация о загрузке .env файла
 	if envLoaded {
-		logger.Info("Файл .env успешно загружен")
+		logger.Info(".env file successfully loaded")
 	} else {
-		logger.Info("Файл .env не найден, используется переменные окружения")
+		logger.Info(".env file not found")
 	}
 
-	// Инициализация роутера
+	// Создание маршрутизатора
 	r := router.NewRouter(logger)
 
-	// Запуск сервера
-	logger.Info("Запуск сервера", zap.String("порт", cfg.Port))
+	// Запуск HTTP-сервера
+	logger.Info("Server started", zap.String("port", cfg.Port))
 	if err := http.ListenAndServe(":"+cfg.Port, r); err != nil {
-		logger.Fatal("Сервер завершил работу с ошибкой", zap.Error(err))
+		logger.Fatal("Server error", zap.Error(err))
 	}
 }
 
 // initLogger инициализирует логгер Zap с заданным уровнем логирования.
 func initLogger(level string) (*zap.Logger, error) {
-	var zapConfig zap.Config
+	zapConfig := zap.NewProductionConfig()
 
-	// Используем конфигурацию по умолчанию
-	zapConfig = zap.NewProductionConfig()
-
-	// Настройка уровня логирования
+	// Установка уровня логирования
 	switch level {
 	case "debug":
 		zapConfig.Level = zap.NewAtomicLevelAt(zap.DebugLevel)
@@ -67,7 +62,7 @@ func initLogger(level string) (*zap.Logger, error) {
 		zapConfig.Level = zap.NewAtomicLevelAt(zap.InfoLevel)
 	}
 
-	// Настройка вывода в консоль и файл
+	// Настройка путей вывода логов
 	zapConfig.OutputPaths = []string{
 		"stdout",
 		"logs/app.log",
@@ -77,10 +72,10 @@ func initLogger(level string) (*zap.Logger, error) {
 		"logs/error.log",
 	}
 
-	// Изменяем формат времени
-    zapConfig.EncoderConfig = zap.NewProductionEncoderConfig()
-    zapConfig.EncoderConfig.TimeKey = "timestamp" // Измените название ключа времени, если нужно
-    zapConfig.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
+	// Конфигурация формата времени в логах
+	zapConfig.EncoderConfig = zap.NewProductionEncoderConfig()
+	zapConfig.EncoderConfig.TimeKey = "timestamp"
+	zapConfig.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
 
 	// Создание логгера
 	logger, err := zapConfig.Build()

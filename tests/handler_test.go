@@ -1,17 +1,18 @@
-// tests/handler_test.go
 package tests
 
 import (
 	"bytes"
 	"encoding/json"
+	"testing"
+
 	"github.com/mpkelevra23/arithmetic-web-service/errors"
 	"github.com/mpkelevra23/arithmetic-web-service/internal/handler"
 	"go.uber.org/zap"
 	"net/http"
 	"net/http/httptest"
-	"testing"
 )
 
+// TestCalculateHandler проверяет работу HTTP-обработчика CalculateHandler.
 func TestCalculateHandler(t *testing.T) {
 	// Инициализация логгера
 	logger, err := zap.NewDevelopment()
@@ -29,7 +30,7 @@ func TestCalculateHandler(t *testing.T) {
 		method         string
 		payload        interface{}
 		expectedStatus int
-		expectedBody   interface{}
+		expectedBody   map[string]string
 	}{
 		{
 			name:   "Valid Expression",
@@ -88,17 +89,17 @@ func TestCalculateHandler(t *testing.T) {
 		},
 		{
 			name:           "Unsupported HTTP Method",
-			method:         http.MethodGet, // Используем метод, который не поддерживается
-			payload:        nil,              // Нет тела запроса
+			method:         http.MethodGet, // Используем неподдерживаемый метод
+			payload:        nil,            // Нет тела запроса
 			expectedStatus: http.StatusMethodNotAllowed,
 			expectedBody: map[string]string{
 				"error": errors.ErrUnsupportedMethod,
 			},
 		},
 		{
-			name:   "Malformed JSON",
-			method: http.MethodPost,
-			payload: `{"expression": "1 + 2",`, // Неправильный JSON
+			name:           "Malformed JSON",
+			method:         http.MethodPost,
+			payload:        `{"expression": "1 + 2",`, // Неправильный JSON
 			expectedStatus: http.StatusBadRequest,
 			expectedBody: map[string]string{
 				"error": errors.ErrMalformedJSON,
@@ -122,7 +123,7 @@ func TestCalculateHandler(t *testing.T) {
 			var reqBody []byte
 			var err error
 
-			// Определение тела запроса
+			// Подготовка тела запроса
 			switch payload := tt.payload.(type) {
 			case string:
 				reqBody = []byte(payload)
@@ -159,7 +160,7 @@ func TestCalculateHandler(t *testing.T) {
 			}
 
 			// Проверка соответствия ожидаемого и фактического тела ответа
-			for key, expectedValue := range tt.expectedBody.(map[string]string) {
+			for key, expectedValue := range tt.expectedBody {
 				if value, exists := responseBody[key]; !exists || value != expectedValue {
 					t.Errorf("Для ключа '%s' ожидалось '%s', получено '%s'", key, expectedValue, value)
 				}
@@ -168,7 +169,7 @@ func TestCalculateHandler(t *testing.T) {
 	}
 }
 
-// generateLongExpression генерирует строку с заданным количеством символов для теста "Expression Too Long"
+// generateLongExpression создает строку арифметического выражения заданной длины.
 func generateLongExpression(length int) string {
 	expression := ""
 	for i := 0; i < length; i++ {

@@ -1,212 +1,183 @@
 package calculator
 
 import (
-	"fmt"     // Пакет fmt используется для форматированного ввода и вывода данных.
-	"strconv" // Пакет strconv предоставляет функции для преобразования типов данных, например, из строк в числа.
+	"fmt"
+	"strconv"
 )
 
-// TokenType представляет тип токена. Это алиас для строки, используемый для определения различных типов токенов.
+// TokenType представляет тип токена.
 type TokenType string
 
-// Константы, представляющие различные типы токенов, используемых в арифметическом выражении.
+// Поддерживаемые типы токенов.
 const (
-	TokenPlus     TokenType = "+"      // Токен для оператора сложения.
-	TokenMinus    TokenType = "-"      // Токен для оператора вычитания.
-	TokenMultiply TokenType = "*"      // Токен для оператора умножения.
-	TokenDivide   TokenType = "/"      // Токен для оператора деления.
-	TokenLParen   TokenType = "("      // Токен для открывающей скобки.
-	TokenRParen   TokenType = ")"      // Токен для закрывающей скобки.
-	TokenNumber   TokenType = "NUMBER" // Токен для числовых значений.
+	TokenPlus     TokenType = "+"
+	TokenMinus    TokenType = "-"
+	TokenMultiply TokenType = "*"
+	TokenDivide   TokenType = "/"
+	TokenLParen   TokenType = "("
+	TokenRParen   TokenType = ")"
+	TokenNumber   TokenType = "NUMBER"
 )
 
-// Token представляет собой токен с типом и именем. Используется для хранения информации о каждом токене в выражении.
+// Token представляет токен в выражении.
 type Token struct {
-	Type TokenType // Тип токена (например, оператор или число).
-	Name string    // Строковое представление токена (например, "+", "-", "NUMBER").
+	Type TokenType // Тип токена
+	Name string    // Строковое представление токена
 }
 
-// Calc вычисляет арифметическое выражение, представленное строкой.
-// Возвращает результат вычисления как float64 и ошибку, если она возникает.
-// Метод начинается с большой буквы, что означает, что он является публичным и доступным из других пакетов.
+// Calc вычисляет результат арифметического выражения.
+// Возвращает результат вычисления и ошибку, если она возникла.
 func Calc(expression string) (float64, error) {
-	// Разбиваем выражение на токены с помощью функции tokenize.
 	tokens := tokenize(expression)
 
-	// Начинаем парсинг выражения с позиции 0, используя функцию parseExpression.
 	result, pos, err := parseExpression(tokens, 0)
 	if err != nil {
-		return 0, err // Возвращаем ошибку, если она возникла во время парсинга.
+		return 0, err
 	}
 
-	// Проверяем, что все токены были обработаны. Если нет, возвращаем ошибку.
 	if pos != len(tokens) {
-		return 0, fmt.Errorf("неожиданный токен: %s", tokens[pos].Name)
+		return 0, fmt.Errorf("unexpected token: %s", tokens[pos].Name)
 	}
 
-	return result, nil // Возвращаем результат вычисления.
+	return result, nil
 }
 
-// tokenize разбивает строку арифметического выражения на слайс токенов.
-// Каждый токен представляет собой оператор, скобку или число.
-// Метод начинается с маленькой буквы, что означает, что он является приватным и доступным только внутри пакета.
+// tokenize разбивает строку на токены.
 func tokenize(expression string) []Token {
-	var tokens []Token      // Инициализируем пустой слайс токенов.
-	var currentToken string // Переменная для накопления символов числа.
+	var tokens []Token
+	var currentToken string
 
-	for _, char := range expression { // Проходим по каждому символу в выражении.
+	for _, char := range expression {
 		switch char {
-		case '+', '-', '*', '/', '(', ')': // Проверяем, является ли символ оператором или скобкой.
-			if currentToken != "" { // Если есть накопленные символы числа, добавляем их как токен.
+		case '+', '-', '*', '/', '(', ')':
+			if currentToken != "" {
 				tokens = append(tokens, Token{Type: TokenNumber, Name: currentToken})
-				currentToken = "" // Сбрасываем накопитель для числа.
+				currentToken = ""
 			}
-			// Добавляем оператор или скобку как отдельный токен.
 			tokens = append(tokens, Token{Type: TokenType(char), Name: string(char)})
-		case ' ', '\t': // Если символ является пробелом или табуляцией.
-			if currentToken != "" { // Добавляем накопленное число как токен.
+		case ' ', '\t':
+			if currentToken != "" {
 				tokens = append(tokens, Token{Type: TokenNumber, Name: currentToken})
-				currentToken = "" // Сбрасываем накопитель для числа.
+				currentToken = ""
 			}
-			// Пробелы игнорируются.
 		default:
-			// Добавляем символ к текущему числу.
 			currentToken += string(char)
 		}
 	}
 
-	// После обработки всех символов, если есть накопленное число, добавляем его как токен.
 	if currentToken != "" {
 		tokens = append(tokens, Token{Type: TokenNumber, Name: currentToken})
 	}
 
-	return tokens // Возвращаем слайс токенов.
+	return tokens
 }
 
-// parseExpression рекурсивно обрабатывает выражение, начиная с позиции pos.
-// Возвращает результат вычисления, новую позицию и ошибку, если она возникла.
+// parseExpression обрабатывает сложение и вычитание.
 func parseExpression(tokens []Token, pos int) (float64, int, error) {
-	// Парсим первый термин выражения.
 	left, pos, err := parseTerm(tokens, pos)
 	if err != nil {
-		return 0, pos, err // Возвращаем ошибку, если она возникла.
+		return 0, pos, err
 	}
 
-	// Обрабатываем операторы + и -.
 	for pos < len(tokens) {
 		switch tokens[pos].Type {
-		case TokenPlus: // Если текущий токен - оператор сложения.
-			// Парсим следующий термин после оператора +.
+		case TokenPlus:
 			right, newPos, err := parseTerm(tokens, pos+1)
 			if err != nil {
-				return 0, newPos, err // Возвращаем ошибку, если она возникла.
+				return 0, newPos, err
 			}
-			left += right // Добавляем правый термин к левому.
-			pos = newPos  // Обновляем текущую позицию.
-		case TokenMinus: // Если текущий токен - оператор вычитания.
-			// Парсим следующий термин после оператора -.
+			left += right
+			pos = newPos
+		case TokenMinus:
 			right, newPos, err := parseTerm(tokens, pos+1)
 			if err != nil {
-				return 0, newPos, err // Возвращаем ошибку, если она возникла.
+				return 0, newPos, err
 			}
-			left -= right // Вычитаем правый термин из левого.
-			pos = newPos  // Обновляем текущую позицию.
+			left -= right
+			pos = newPos
 		default:
-			// Если оператор не + или -, возвращаем текущий результат.
 			return left, pos, nil
 		}
 	}
 
-	return left, pos, nil // Возвращаем итоговый результат и позицию.
+	return left, pos, nil
 }
 
-// parseTerm обрабатывает умножение и деление, начиная с позиции pos.
-// Возвращает результат вычисления, новую позицию и ошибку, если она возникла.
+// parseTerm обрабатывает умножение и деление.
 func parseTerm(tokens []Token, pos int) (float64, int, error) {
-	// Парсим первый фактор термина.
 	left, pos, err := parseFactor(tokens, pos)
 	if err != nil {
-		return 0, pos, err // Возвращаем ошибку, если она возникла.
+		return 0, pos, err
 	}
 
-	// Обрабатываем операторы * и /.
 	for pos < len(tokens) {
 		switch tokens[pos].Type {
-		case TokenMultiply: // Если текущий токен - оператор умножения.
-			// Парсим следующий фактор после оператора *.
+		case TokenMultiply:
 			right, newPos, err := parseFactor(tokens, pos+1)
 			if err != nil {
-				return 0, newPos, err // Возвращаем ошибку, если она возникла.
+				return 0, newPos, err
 			}
-			left *= right // Умножаем левый фактор на правый.
-			pos = newPos  // Обновляем текущую позицию.
-		case TokenDivide: // Если текущий токен - оператор деления.
-			// Парсим следующий фактор после оператора /.
+			left *= right
+			pos = newPos
+		case TokenDivide:
 			right, newPos, err := parseFactor(tokens, pos+1)
 			if err != nil {
-				return 0, newPos, err // Возвращаем ошибку, если она возникла.
+				return 0, newPos, err
 			}
-			// Проверяем деление на ноль.
 			if right == 0 {
-				return 0, newPos, fmt.Errorf("деление на ноль")
+				return 0, newPos, fmt.Errorf("division by zero")
 			}
-			left /= right // Делим левый фактор на правый.
-			pos = newPos  // Обновляем текущую позицию.
+			left /= right
+			pos = newPos
 		default:
-			// Если оператор не * или /, возвращаем текущий результат.
 			return left, pos, nil
 		}
 	}
 
-	return left, pos, nil // Возвращаем итоговый результат и позицию.
+	return left, pos, nil
 }
 
-// parseFactor обрабатывает числа и выражения в скобках, начиная с позиции pos.
-// Возвращает результат вычисления, новую позицию и ошибку, если она возникла.
+// parseFactor обрабатывает числа, унарные операторы и скобки.
+// Возвращает значение, позицию после обработки и ошибку, если она возникла.
 func parseFactor(tokens []Token, pos int) (float64, int, error) {
-	// Проверяем, что текущая позиция не выходит за пределы списка токенов.
 	if pos >= len(tokens) {
-		return 0, pos, fmt.Errorf("недостаточно токенов")
+		return 0, pos, fmt.Errorf("insufficient tokens")
 	}
 
-	// Обработка унарных операторов + и -.
+	// Обработка унарных операторов
 	if tokens[pos].Type == TokenPlus || tokens[pos].Type == TokenMinus {
-		operator := tokens[pos].Type // Сохраняем оператор.
-		// Парсим следующий фактор после оператора.
+		operator := tokens[pos].Type
 		value, newPos, err := parseFactor(tokens, pos+1)
 		if err != nil {
-			return 0, newPos, err // Возвращаем ошибку, если она возникла.
+			return 0, newPos, err
 		}
 		if operator == TokenMinus {
-			return -value, newPos, nil // Инвертируем знак, если оператор -.
+			return -value, newPos, nil
 		}
-		return value, newPos, nil // Возвращаем значение без изменений, если оператор +.
+		return value, newPos, nil
 	}
 
-	// Проверяем, является ли токен открывающей скобкой.
+	// Обработка скобок
 	if tokens[pos].Type == TokenLParen {
-		// Парсим выражение внутри скобок.
 		result, newPos, err := parseExpression(tokens, pos+1)
 		if err != nil {
-			return 0, newPos, err // Возвращаем ошибку, если она возникла.
+			return 0, newPos, err
 		}
-		// Проверяем наличие закрывающей скобки.
 		if newPos >= len(tokens) || tokens[newPos].Type != TokenRParen {
-			return 0, newPos, fmt.Errorf("отсутствует закрывающая скобка")
+			return 0, newPos, fmt.Errorf("missing closing parenthesis")
 		}
-		// Возвращаем результат выражения внутри скобок и обновленную позицию.
 		return result, newPos + 1, nil
 	}
 
-	// Если токен не является скобкой, предполагаем, что это число.
+	// Обработка чисел
 	if tokens[pos].Type != TokenNumber {
-		return 0, pos, fmt.Errorf("недопустимый токен: %s", tokens[pos].Name)
+		return 0, pos, fmt.Errorf("invalid token: %s", tokens[pos].Name)
 	}
 
-	// Преобразуем строковое представление числа в тип float64.
 	num, err := strconv.ParseFloat(tokens[pos].Name, 64)
 	if err != nil {
-		return 0, pos, fmt.Errorf("недопустимый токен: %s", tokens[pos].Name)
+		return 0, pos, fmt.Errorf("invalid number: %s", tokens[pos].Name)
 	}
-	// Возвращаем число и обновленную позицию.
+
 	return num, pos + 1, nil
 }
