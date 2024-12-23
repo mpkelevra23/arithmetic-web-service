@@ -116,6 +116,24 @@ func TestCalculateHandler(t *testing.T) {
 				"error": errors.ErrTooLongExpression,
 			},
 		},
+		{
+			name:           "Trigger Internal Server Error by Header",
+			method:         http.MethodPost,
+			payload:        map[string]string{"expression": "1+1"},
+			expectedStatus: http.StatusInternalServerError,
+			expectedBody: map[string]string{
+				"error": "Internal Server Error",
+			},
+		},
+		{
+			name:           "Trigger Internal Server Error by Long Expression",
+			method:         http.MethodPost,
+			payload:        map[string]string{"expression": generateLongExpression(800)},
+			expectedStatus: http.StatusInternalServerError,
+			expectedBody: map[string]string{
+				"error": "Expression length triggered server error",
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -141,6 +159,9 @@ func TestCalculateHandler(t *testing.T) {
 			// Создание нового HTTP запроса
 			req := httptest.NewRequest(tt.method, "/api/v1/calculate", bytes.NewBuffer(reqBody))
 			req.Header.Set("Content-Type", "application/json")
+			if tt.name == "Trigger Internal Server Error by Header" {
+				req.Header.Set("X-Trigger-500", "true")
+			}
 
 			// Создание ResponseRecorder для записи ответа
 			rr := httptest.NewRecorder()
