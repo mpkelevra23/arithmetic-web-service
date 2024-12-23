@@ -27,64 +27,78 @@ var expressionRegex = regexp.MustCompile(`^[0-9+\-*/().\s]+$`)
 
 // CalculateHandler обрабатывает POST-запросы к эндпоинту /api/v1/calculate.
 func CalculateHandler(logger *zap.Logger) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		var req CalculateRequest
+    return func(w http.ResponseWriter, r *http.Request) {
+        var req CalculateRequest
 
-		// Проверка метода запроса
-		if r.Method != http.MethodPost {
-			logger.Warn("Unsupported HTTP method", zap.String("method", r.Method))
-			errors.WriteErrorResponse(w, http.StatusMethodNotAllowed, errors.ErrUnsupportedMethod)
-			return
-		}
+        // Пример искусственного вызова ошибки 500
+        if r.Header.Get("X-Trigger-500") == "true" {
+            logger.Error("Artificial internal server error triggered")
+            errors.WriteErrorResponse(w, http.StatusInternalServerError, "Internal Server Error")
+            return
+        }
 
-		// Декодирование JSON тела запроса
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			logger.Error("Request body decoding error", zap.Error(err))
-			errors.WriteErrorResponse(w, http.StatusBadRequest, errors.ErrMalformedJSON)
-			return
-		}
+        // Проверка метода запроса
+        if r.Method != http.MethodPost {
+            logger.Warn("Unsupported HTTP method", zap.String("method", r.Method))
+            errors.WriteErrorResponse(w, http.StatusMethodNotAllowed, errors.ErrUnsupportedMethod)
+            return
+        }
 
-		// Очистка и проверка поля expression
-		expression := strings.TrimSpace(req.Expression)
-		if expression == "" {
-			logger.Error("Empty expression field")
-			errors.WriteErrorResponse(w, http.StatusUnprocessableEntity, errors.ErrMissingField)
-			return
-		}
+        // Декодирование JSON тела запроса
+        if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+            logger.Error("Request body decoding error", zap.Error(err))
+            errors.WriteErrorResponse(w, http.StatusBadRequest, errors.ErrMalformedJSON)
+            return
+        }
 
-		// Валидация выражения на допустимые символы
-		if !expressionRegex.MatchString(expression) {
-			logger.Error("Invalid characters in expression", zap.String("expression", expression))
-			errors.WriteErrorResponse(w, http.StatusUnprocessableEntity, errors.ErrInvalidInput)
-			return
-		}
+        // Очистка и проверка поля expression
+        expression := strings.TrimSpace(req.Expression)
+        if expression == "" {
+            logger.Error("Empty expression field")
+            errors.WriteErrorResponse(w, http.StatusUnprocessableEntity, errors.ErrMissingField)
+            return
+        }
 
-		// Проверка длины выражения
-		if len(expression) > 1000 {
-			logger.Error("Expression is too long", zap.Int("length", len(expression)))
-			errors.WriteErrorResponse(w, http.StatusUnprocessableEntity, errors.ErrTooLongExpression)
-			return
-		}
+        // Валидация выражения на допустимые символы
+        if !expressionRegex.MatchString(expression) {
+            logger.Error("Invalid characters in expression", zap.String("expression", expression))
+            errors.WriteErrorResponse(w, http.StatusUnprocessableEntity, errors.ErrInvalidInput)
+            return
+        }
 
-		// Вычисление результата выражения
-		result, err := calculator.Calc(expression)
-		if err != nil {
-			logger.Error("Calculation error", zap.Error(err))
-			handleCalculationError(w, err)
-			return
-		}
+        // Пример искусственного вызова ошибки 500 на основе длины выражения
+        if len(expression) > 500 && len(expression) <= 1000 {
+            logger.Error("Artificial internal server error for long expression")
+            errors.WriteErrorResponse(w, http.StatusInternalServerError, "Expression length triggered server error")
+            return
+        }
 
-		// Формирование успешного ответа
-		resp := CalculateResponse{
-			Result: formatResult(result),
-		}
+        // Проверка длины выражения
+        if len(expression) > 1000 {
+            logger.Error("Expression is too long", zap.Int("length", len(expression)))
+            errors.WriteErrorResponse(w, http.StatusUnprocessableEntity, errors.ErrTooLongExpression)
+            return
+        }
 
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		if err := json.NewEncoder(w).Encode(resp); err != nil {
-			logger.Error("Response encoding error", zap.Error(err))
-		}
-	}
+        // Вычисление результата выражения
+        result, err := calculator.Calc(expression)
+        if err != nil {
+            logger.Error("Calculation error", zap.Error(err))
+            handleCalculationError(w, err)
+            return
+        }
+
+        // Формирование успешного ответа
+        resp := CalculateResponse{
+            Result: formatResult(result),
+        }
+
+        w.Header().Set("Content-Type", "application/json")
+        w.WriteHeader(http.StatusOK)
+        if err := json.NewEncoder(w).Encode(resp); err != nil {
+            logger.Error("Response encoding error", zap.Error(err))
+        }
+    }
 }
 
 // handleCalculationError обрабатывает ошибки, возникшие при вычислении выражения.

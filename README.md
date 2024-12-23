@@ -135,6 +135,49 @@ curl -i --location 'http://localhost:8080/api/v1/calculate' \
 }
 ```
 
+#### 4. Искусственно вызванная ошибка 500
+
+Добавлена возможность принудительного вызова ошибки 500 через заголовок `X-Trigger-500` или определенные условия:
+
+**Запрос с заголовком:**
+
+```bash
+curl -i --location 'http://localhost:8080/api/v1/calculate' \
+--header 'Content-Type: application/json' \
+--header 'X-Trigger-500: true' \
+--data '{
+  "expression": "1+1"
+}'
+```
+
+**Ответ:**
+
+```json
+{
+    "error": "Internal Server Error"
+}
+```
+
+**Запрос с длинным выражением:**
+
+```bash
+curl -i --location 'http://localhost:8080/api/v1/calculate' \
+--header 'Content-Type: application/json' \
+--data '{
+  "expression": "1+1+...(очень длинная строка)"
+}'
+```
+
+Если длина выражения находится в диапазоне от 500 до 1000 символов, сервер возвращает:
+
+**Ответ:**
+
+```json
+{
+    "error": "Expression length triggered server error"
+}
+```
+
 ## Тестирование
 
 ### Запуск тестов
