@@ -1,6 +1,6 @@
 package models
 
-// Expression представляет арифметическое выражение и его статус
+// Expression определяет текущий статус выражения
 type Expression struct {
 	ID       int     `json:"id"`                   // Уникальный идентификатор выражения
 	RawExpr  string  `json:"expression,omitempty"` // Исходное строковое выражение
@@ -9,22 +9,22 @@ type Expression struct {
 	ErrorMsg string  `json:"error,omitempty"`      // Сообщение об ошибке (если статус ERROR)
 }
 
-// ExpressionRequest представляет запрос на вычисление выражения
+// ExpressionRequest представляет запрос на добавление выражения
 type ExpressionRequest struct {
-	Expression string `json:"expression"` // Строка с выражением
+	Expression string `json:"expression"`
 }
 
-// ExpressionResponse представляет ответ на запрос добавления выражения
+// ExpressionResponse представляет ответ с ID добавленного выражения
 type ExpressionResponse struct {
-	ID int `json:"id"` // Идентификатор добавленного выражения
+	ID int `json:"id"`
 }
 
 // ExpressionsResponse представляет ответ со списком выражений
 type ExpressionsResponse struct {
-	Expressions []Expression `json:"expressions"` // Список выражений
+	Expressions []Expression `json:"expressions"`
 }
 
-// ExpressionDetailResponse представляет ответ с детальной информацией о выражении
+// ExpressionDetailResponse представляет ответ с деталями выражения
 type ExpressionDetailResponse struct {
-	Expression Expression `json:"expression"` // Детальная информация о выражении
+	Expression Expression `json:"expression"`
 }

@@ -5,6 +5,7 @@ import (
 	"testing"
 )
 
+// TestParser_ParseExpression проверяет разбор арифметических выражений
 func TestParser_ParseExpression(t *testing.T) {
 	// Создаем парсер с тестовыми временами операций
 	opTimes := OperationTimes{
@@ -95,6 +96,7 @@ func TestParser_ParseExpression(t *testing.T) {
 	}
 }
 
+// TestStorage_AddExpression проверяет добавление выражения в хранилище
 func TestStorage_AddExpression(t *testing.T) {
 	storage := NewStorage()
 

@@ -6,7 +6,7 @@ import (
 	"sync"
 )
 
-// Storage представляет in-memory хранилище для выражений и задач
+// Storage представляет хранилище выражений и задач
 type Storage struct {
 	expressions      map[int]models.Expression // Хранилище выражений
 	tasks            map[int]models.Task       // Хранилище задач

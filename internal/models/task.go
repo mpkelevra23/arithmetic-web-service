@@ -5,10 +5,10 @@ type Operation string
 
 // Константы для типов операций
 const (
-	OperationAdd      Operation = "ADD"      // Сложение
-	OperationSubtract Operation = "SUBTRACT" // Вычитание
-	OperationMultiply Operation = "MULTIPLY" // Умножение
-	OperationDivide   Operation = "DIVIDE"   // Деление
+	OperationAdd      Operation = "ADD"
+	OperationSubtract Operation = "SUBTRACT"
+	OperationMultiply Operation = "MULTIPLY"
+	OperationDivide   Operation = "DIVIDE"
 )
 
 // Task представляет задачу на выполнение одной операции
@@ -24,13 +24,13 @@ type Task struct {
 	IsReady       bool      `json:"-"`                       // Готовность к выполнению
 }
 
-// TaskResponse представляет ответ на запрос задачи для выполнения
+// TaskResponse представляет запрос на добавление задачи
 type TaskResponse struct {
-	Task *Task `json:"task,omitempty"` // Задача (nil, если нет доступных задач)
+	Task *Task `json:"task,omitempty"`
 }
 
-// TaskResultRequest представляет запрос на добавление результата выполненной задачи
+// TaskResultRequest представляет запрос на отправку результата задачи
 type TaskResultRequest struct {
-	ID     int     `json:"id"`     // Идентификатор задачи
-	Result float64 `json:"result"` // Результат выполнения
+	ID     int     `json:"id"`
+	Result float64 `json:"result"`
 }

@@ -6,6 +6,7 @@ import (
 	"time"
 )
 
+// TestExecuteTask проверяет выполнение задач
 func TestExecuteTask(t *testing.T) {
 	// Создаем агента
 	a := NewAgent("http://localhost:8080", 1)
