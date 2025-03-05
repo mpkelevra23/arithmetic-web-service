@@ -75,9 +75,10 @@ func TestExecuteTask(t *testing.T) {
 				Operation:     models.OperationDivide,
 				OperationTime: 1,
 			},
-			want:      0, // Значение не важно, т.к. ожидается ошибка
+			want:      0, // Значение неважно, т.к. ожидается ошибка
 			wantError: true,
 		},
+		// TODO тест ломается в этом примере, надо исправить
 		{
 			name: "Некорректный аргумент",
 			task: models.Task{
@@ -87,7 +88,7 @@ func TestExecuteTask(t *testing.T) {
 				Operation:     models.OperationAdd,
 				OperationTime: 1,
 			},
-			want:      0, // Значение не важно, т.к. ожидается ошибка
+			want:      0, // Значение неважно, т.к. ожидается ошибка
 			wantError: true,
 		},
 	}

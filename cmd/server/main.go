@@ -15,7 +15,12 @@ func main() {
 	cfg, envLoaded, err := config.LoadConfig()
 	if err != nil {
 		zapLogger, _ := zap.NewProduction()
-		defer zapLogger.Sync()
+		defer func(zapLogger *zap.Logger) {
+			err := zapLogger.Sync()
+			if err != nil {
+				zapLogger.Error("Logger sync error", zap.Error(err))
+			}
+		}(zapLogger)
 		zapLogger.Fatal("Configuration error", zap.Error(err))
 	}
 
@@ -23,10 +28,20 @@ func main() {
 	logger, err := initLogger(cfg.LogLevel)
 	if err != nil {
 		zapLogger, _ := zap.NewProduction()
-		defer zapLogger.Sync()
+		defer func(zapLogger *zap.Logger) {
+			err := zapLogger.Sync()
+			if err != nil {
+				zapLogger.Error("Logger sync error", zap.Error(err))
+			}
+		}(zapLogger)
 		zapLogger.Fatal("Logger initialization error", zap.Error(err))
 	}
-	defer logger.Sync()
+	defer func(logger *zap.Logger) {
+		err := logger.Sync()
+		if err != nil {
+			logger.Error("Logger sync error", zap.Error(err))
+		}
+	}(logger)
 
 	// Информация о загрузке .env файла
 	if envLoaded {
@@ -53,7 +68,7 @@ func initLogger(level string) (*zap.Logger, error) {
 	if err := os.MkdirAll(logDir, 0755); err != nil {
 		return nil, err
 	}
-	
+
 	// Настройка конфигурации логгера
 	zapConfig := zap.NewProductionConfig()
 

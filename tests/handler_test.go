@@ -19,7 +19,12 @@ func TestCalculateHandler(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Не удалось инициализировать логгер: %v", err)
 	}
-	defer logger.Sync()
+	defer func(logger *zap.Logger) {
+		err := logger.Sync()
+		if err != nil {
+			logger.Error("Logger sync error", zap.Error(err))
+		}
+	}(logger)
 
 	// Инициализация обработчика
 	handlerFunc := handler.CalculateHandler(logger)
