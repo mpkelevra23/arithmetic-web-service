@@ -83,23 +83,42 @@ func (s *Storage) AddTasks(exprID int, tasks []models.Task) error {
 		return fmt.Errorf("выражение с ID %d не найдено", exprID)
 	}
 
+	// Map from temporary ID to actual ID
+	tempToActualID := make(map[int]int)
 	taskIDs := make([]int, 0, len(tasks))
 
+	// First pass: assign global IDs and create mapping
 	for i := range tasks {
+		tempID := tasks[i].ID // Temporary ID from parser
 		s.taskCounter++
-		tasks[i].ID = s.taskCounter
-		tasks[i].ExpressionID = exprID
+		tasks[i].ID = s.taskCounter // Assign global ID
 
-		// Задача готова, если нет зависимостей
-		tasks[i].IsReady = len(tasks[i].Dependencies) == 0
+		tempToActualID[tempID] = tasks[i].ID
+		tasks[i].ExpressionID = exprID
 
 		s.tasks[tasks[i].ID] = tasks[i]
 		taskIDs = append(taskIDs, tasks[i].ID)
 	}
 
+	// Second pass: update dependencies to use global IDs
+	for _, taskID := range taskIDs {
+		task := s.tasks[taskID]
+		updatedDeps := make([]int, 0, len(task.Dependencies))
+
+		for _, depID := range task.Dependencies {
+			if actualID, exists := tempToActualID[depID]; exists {
+				updatedDeps = append(updatedDeps, actualID)
+			}
+		}
+
+		task.Dependencies = updatedDeps
+		task.IsReady = len(task.Dependencies) == 0
+		s.tasks[taskID] = task
+	}
+
 	s.exprTasksMapping[exprID] = taskIDs
 
-	// Обновляем статус выражения
+	// Update expression status
 	expr := s.expressions[exprID]
 	expr.Status = models.StatusProcessing
 	s.expressions[exprID] = expr
