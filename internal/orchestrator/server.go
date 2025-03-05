@@ -64,7 +64,7 @@ func (s *Server) handleCalculate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Разбираем выражение на задачи
-	tasks, err := s.parser.ParseExpression(req.Expression, exprID)
+	tasks, err := s.parser.ParseExpression(req.Expression)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Ошибка разбора выражения: %v", err), http.StatusUnprocessableEntity)
 		return

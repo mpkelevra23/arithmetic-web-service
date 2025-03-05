@@ -43,6 +43,7 @@ type Node struct {
 }
 
 // ParseExpression разбирает выражение и создает задачи
+// ParseExpression разбирает выражение и создает задачи
 func (p *Parser) ParseExpression(expr string) ([]models.Task, error) {
 	// Удаляем пробелы
 	expr = strings.ReplaceAll(expr, " ", "")
@@ -69,7 +70,7 @@ func (p *Parser) ParseExpression(expr string) ([]models.Task, error) {
 
 	// Преобразуем дерево в задачи
 	tasks := make([]models.Task, 0)
-	_, err = p.buildTasks(root, &tasks)
+	_, err = p.buildTasks(root, &tasks, 0)
 	if err != nil {
 		return nil, err
 	}
