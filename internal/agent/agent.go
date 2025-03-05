@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/mpkelevra23/arithmetic-web-service/internal/models"
+	"io"
 	"log"
 	"net/http"
 	"strconv"
@@ -45,7 +46,7 @@ func (a *Agent) Start() {
 	a.wg.Wait()
 }
 
-// worker представляет горутину, выполняющую задачи
+// Worker представляет горутину, выполняющую задачи
 func (a *Agent) worker(id int) {
 	defer a.wg.Done()
 
@@ -88,7 +89,12 @@ func (a *Agent) getTask() (*models.Task, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			log.Printf("Ошибка закрытия тела ответа: %v\n", err)
+		}
+	}(resp.Body)
 
 	if resp.StatusCode == http.StatusNotFound {
 		return nil, fmt.Errorf("нет доступных задач")
@@ -108,39 +114,49 @@ func (a *Agent) getTask() (*models.Task, error) {
 
 // executeTask выполняет задачу и возвращает результат
 func (a *Agent) executeTask(task *models.Task) (float64, error) {
+	// Замеряем время начала
+	start := time.Now()
+
 	// Парсим аргументы
-	arg1, err := strconv.ParseFloat(task.Arg1, 64)
-	if err != nil {
-		return 0, fmt.Errorf("некорректный аргумент 1: %s", task.Arg1)
-	}
+	arg1, err1 := strconv.ParseFloat(task.Arg1, 64)
+	arg2, err2 := strconv.ParseFloat(task.Arg2, 64)
 
-	arg2, err := strconv.ParseFloat(task.Arg2, 64)
-	if err != nil {
-		return 0, fmt.Errorf("некорректный аргумент 2: %s", task.Arg2)
-	}
-
-	// Искусственная задержка
-	time.Sleep(time.Duration(task.OperationTime) * time.Millisecond)
-
-	// Выполняем операцию
 	var result float64
-	switch task.Operation {
-	case models.OperationAdd:
-		result = arg1 + arg2
-	case models.OperationSubtract:
-		result = arg1 - arg2
-	case models.OperationMultiply:
-		result = arg1 * arg2
-	case models.OperationDivide:
-		if arg2 == 0 {
-			return 0, fmt.Errorf("деление на ноль")
+	var execError error
+
+	// Проверяем корректность аргументов
+	if err1 != nil {
+		execError = fmt.Errorf("некорректный аргумент 1: %s", task.Arg1)
+	} else if err2 != nil {
+		execError = fmt.Errorf("некорректный аргумент 2: %s", task.Arg2)
+	} else {
+		// Выполняем операцию
+		switch task.Operation {
+		case models.OperationAdd:
+			result = arg1 + arg2
+		case models.OperationSubtract:
+			result = arg1 - arg2
+		case models.OperationMultiply:
+			result = arg1 * arg2
+		case models.OperationDivide:
+			if arg2 == 0 {
+				execError = fmt.Errorf("деление на ноль")
+			} else {
+				result = arg1 / arg2
+			}
+		default:
+			execError = fmt.Errorf("неизвестная операция: %s", task.Operation)
 		}
-		result = arg1 / arg2
-	default:
-		return 0, fmt.Errorf("неизвестная операция: %s", task.Operation)
 	}
 
-	return result, nil
+	// Проверяем время выполнения
+	elapsed := time.Since(start)
+	remainingTime := time.Duration(task.OperationTime)*time.Millisecond - elapsed
+	if remainingTime > 0 {
+		time.Sleep(remainingTime)
+	}
+
+	return result, execError
 }
 
 // sendResult отправляет результат задачи оркестратору
@@ -164,7 +180,12 @@ func (a *Agent) sendResult(taskID int, result float64, errMsg string) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			log.Printf("Ошибка закрытия тела ответа: %v\n", err)
+		}
+	}(resp.Body)
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("неожиданный код ответа: %d", resp.StatusCode)

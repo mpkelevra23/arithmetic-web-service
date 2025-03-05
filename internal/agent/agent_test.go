@@ -78,7 +78,6 @@ func TestExecuteTask(t *testing.T) {
 			want:      0, // Значение неважно, т.к. ожидается ошибка
 			wantError: true,
 		},
-		// TODO тест ломается в этом примере, надо исправить
 		{
 			name: "Некорректный аргумент",
 			task: models.Task{

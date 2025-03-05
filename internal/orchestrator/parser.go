@@ -43,7 +43,6 @@ type Node struct {
 }
 
 // ParseExpression разбирает выражение и создает задачи
-// ParseExpression разбирает выражение и создает задачи
 func (p *Parser) ParseExpression(expr string) ([]models.Task, error) {
 	// Удаляем пробелы
 	expr = strings.ReplaceAll(expr, " ", "")
@@ -78,7 +77,7 @@ func (p *Parser) ParseExpression(expr string) ([]models.Task, error) {
 	return tasks, nil
 }
 
-// tokenize разбивает строку на токены
+// Tokenize разбивает строку на токены
 func (p *Parser) tokenize(expr string) ([]Token, error) {
 	tokens := make([]Token, 0)
 	i := 0

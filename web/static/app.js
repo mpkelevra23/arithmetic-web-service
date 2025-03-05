@@ -1,5 +1,5 @@
 // Выделяем Vue объекты для работы
-const { createApp, ref } = Vue;
+const {createApp, ref} = Vue;
 
 createApp({
     setup() {
@@ -24,7 +24,7 @@ createApp({
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({ expression: expression.value }),
+                    body: JSON.stringify({expression: expression.value}),
                 });
 
                 const data = await response.json();
