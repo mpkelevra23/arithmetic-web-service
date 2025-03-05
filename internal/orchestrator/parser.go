@@ -220,19 +220,19 @@ func (p *Parser) parseFactor(tokens []Token, pos int) (*Node, []Token, error) {
 }
 
 // buildTasks преобразует дерево выражения в список задач
-func (p *Parser) buildTasks(node *Node, tasks *[]models.Task) (string, error) {
+func (p *Parser) buildTasks(node *Node, tasks *[]models.Task, exprID int) (string, error) {
 	if node.Type == "NUMBER" {
 		// Для числа просто возвращаем его значение
 		return node.Value, nil
 	}
 
 	// Рекурсивно обрабатываем левое и правое поддерево
-	leftArg, err := p.buildTasks(node.Left, tasks)
+	leftArg, err := p.buildTasks(node.Left, tasks, exprID)
 	if err != nil {
 		return "", err
 	}
 
-	rightArg, err := p.buildTasks(node.Right, tasks)
+	rightArg, err := p.buildTasks(node.Right, tasks, exprID)
 	if err != nil {
 		return "", err
 	}
@@ -261,6 +261,7 @@ func (p *Parser) buildTasks(node *Node, tasks *[]models.Task) (string, error) {
 	// Создаем задачу
 	task := models.Task{
 		ID:            len(*tasks) + 1, // Временный ID
+		ExpressionID:  exprID,
 		Arg1:          leftArg,
 		Arg2:          rightArg,
 		Operation:     operation,

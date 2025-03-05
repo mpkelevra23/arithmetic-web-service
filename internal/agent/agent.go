@@ -66,13 +66,17 @@ func (a *Agent) worker(id int) {
 		result, err := a.executeTask(task)
 		if err != nil {
 			log.Printf("Воркер %d: ошибка выполнения задачи %d: %v\n", id, task.ID, err)
+			// Отправляем информацию об ошибке
+			if sendErr := a.sendResult(task.ID, 0, err.Error()); sendErr != nil {
+				log.Printf("Воркер %d: ошибка отправки результата задачи %d: %v\n", id, task.ID, sendErr)
+			}
 			continue
 		}
 
 		log.Printf("Воркер %d: задача %d выполнена, результат: %f\n", id, task.ID, result)
 
 		// Отправляем результат
-		if err := a.sendResult(task.ID, result); err != nil {
+		if err := a.sendResult(task.ID, result, ""); err != nil {
 			log.Printf("Воркер %d: ошибка отправки результата задачи %d: %v\n", id, task.ID, err)
 		}
 	}
@@ -140,10 +144,11 @@ func (a *Agent) executeTask(task *models.Task) (float64, error) {
 }
 
 // sendResult отправляет результат задачи оркестратору
-func (a *Agent) sendResult(taskID int, result float64) error {
+func (a *Agent) sendResult(taskID int, result float64, errMsg string) error {
 	reqBody := models.TaskResultRequest{
 		ID:     taskID,
 		Result: result,
+		Error:  errMsg,
 	}
 
 	reqData, err := json.Marshal(reqBody)

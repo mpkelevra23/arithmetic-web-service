@@ -33,4 +33,5 @@ type TaskResponse struct {
 type TaskResultRequest struct {
 	ID     int     `json:"id"`
 	Result float64 `json:"result"`
+	Error  string  `json:"error,omitempty"`
 }

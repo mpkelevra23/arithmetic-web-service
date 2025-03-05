@@ -56,17 +56,17 @@ func (s *Server) handleCalculate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Разбираем выражение на задачи
-	tasks, err := s.parser.ParseExpression(req.Expression)
-	if err != nil {
-		http.Error(w, fmt.Sprintf("Ошибка разбора выражения: %v", err), http.StatusUnprocessableEntity)
-		return
-	}
-
 	// Добавляем выражение в хранилище
 	exprID, err := s.storage.AddExpression(req.Expression)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Ошибка добавления выражения: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	// Разбираем выражение на задачи
+	tasks, err := s.parser.ParseExpression(req.Expression, exprID)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Ошибка разбора выражения: %v", err), http.StatusUnprocessableEntity)
 		return
 	}
 
@@ -146,7 +146,7 @@ func (s *Server) handleTask(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if err := s.storage.UpdateTaskResult(req.ID, req.Result); err != nil {
+		if err := s.storage.UpdateTaskResult(req.ID, req.Result, req.Error); err != nil {
 			if strings.Contains(err.Error(), "не найдена") {
 				http.Error(w, "Задача не найдена", http.StatusNotFound)
 			} else {

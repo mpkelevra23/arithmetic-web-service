@@ -3,6 +3,7 @@ package orchestrator
 import (
 	"fmt"
 	"github.com/mpkelevra23/arithmetic-web-service/internal/models"
+	"strconv"
 	"sync"
 )
 
@@ -122,16 +123,26 @@ func (s *Storage) GetReadyTask() (*models.Task, error) {
 
 			// Заменяем ссылки на результаты на их значения
 			if len(taskToReturn.Arg1) > 4 && taskToReturn.Arg1[:4] == "res:" {
-				resultName := taskToReturn.Arg1
-				if val, exists := s.resultCache[resultName]; exists {
-					taskToReturn.Arg1 = fmt.Sprintf("%f", val)
+				taskIDStr := taskToReturn.Arg1[4:]
+				taskID, err := strconv.Atoi(taskIDStr)
+				if err == nil {
+					// Ищем задачу с этим ID в том же выражении
+					depTask, exists := s.tasks[taskID]
+					if exists && depTask.ExpressionID == taskToReturn.ExpressionID && depTask.Result != nil {
+						taskToReturn.Arg1 = fmt.Sprintf("%f", *depTask.Result)
+					}
 				}
 			}
 
 			if len(taskToReturn.Arg2) > 4 && taskToReturn.Arg2[:4] == "res:" {
-				resultName := taskToReturn.Arg2
-				if val, exists := s.resultCache[resultName]; exists {
-					taskToReturn.Arg2 = fmt.Sprintf("%f", val)
+				taskIDStr := taskToReturn.Arg2[4:]
+				taskID, err := strconv.Atoi(taskIDStr)
+				if err == nil {
+					// Ищем задачу с этим ID в том же выражении
+					depTask, exists := s.tasks[taskID]
+					if exists && depTask.ExpressionID == taskToReturn.ExpressionID && depTask.Result != nil {
+						taskToReturn.Arg2 = fmt.Sprintf("%f", *depTask.Result)
+					}
 				}
 			}
 
@@ -143,7 +154,7 @@ func (s *Storage) GetReadyTask() (*models.Task, error) {
 }
 
 // UpdateTaskResult обновляет результат выполненной задачи
-func (s *Storage) UpdateTaskResult(id int, result float64) error {
+func (s *Storage) UpdateTaskResult(id int, result float64, errorMsg string) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -152,14 +163,21 @@ func (s *Storage) UpdateTaskResult(id int, result float64) error {
 		return fmt.Errorf("задача с ID %d не найдена", id)
 	}
 
+	if errorMsg != "" {
+		// Задача завершилась с ошибкой
+		expr, exists := s.expressions[task.ExpressionID]
+		if exists {
+			expr.Status = models.StatusError
+			expr.ErrorMsg = errorMsg
+			s.expressions[task.ExpressionID] = expr
+		}
+		return nil
+	}
+
 	// Обновляем результат задачи
 	resultValue := result
 	task.Result = &resultValue
 	s.tasks[id] = task
-
-	// Добавляем результат в кеш
-	resultName := fmt.Sprintf("res:%d", id)
-	s.resultCache[resultName] = result
 
 	// Обновляем зависимости других задач
 	s.updateDependencies(id)
@@ -172,23 +190,35 @@ func (s *Storage) UpdateTaskResult(id int, result float64) error {
 
 // updateDependencies обновляет зависимости задач
 func (s *Storage) updateDependencies(completedTaskID int) {
+	completedTask, exists := s.tasks[completedTaskID]
+	if !exists {
+		return
+	}
+
+	expressionID := completedTask.ExpressionID
+
+	// Обновляем только задачи, относящиеся к тому же выражению
 	for id, task := range s.tasks {
-		if task.Result == nil { // Только невыполненные задачи
-			for i, depID := range task.Dependencies {
-				if depID == completedTaskID {
-					// Удаляем выполненную зависимость
-					task.Dependencies = append(task.Dependencies[:i], task.Dependencies[i+1:]...)
-					break
-				}
-			}
-
-			// Если зависимостей нет, задача готова
-			if len(task.Dependencies) == 0 {
-				task.IsReady = true
-			}
-
-			s.tasks[id] = task
+		// Проверяем, что задача относится к тому же выражению
+		if task.ExpressionID != expressionID || task.Result != nil {
+			continue
 		}
+
+		// Проверяем зависимости
+		for i, depID := range task.Dependencies {
+			if depID == completedTaskID {
+				// Удаляем выполненную зависимость
+				task.Dependencies = append(task.Dependencies[:i], task.Dependencies[i+1:]...)
+				break
+			}
+		}
+
+		// Если зависимостей нет, задача готова
+		if len(task.Dependencies) == 0 {
+			task.IsReady = true
+		}
+
+		s.tasks[id] = task
 	}
 }
 
