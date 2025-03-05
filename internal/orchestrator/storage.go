@@ -100,7 +100,7 @@ func (s *Storage) AddTasks(exprID int, tasks []models.Task) error {
 		taskIDs = append(taskIDs, tasks[i].ID)
 	}
 
-	// Second pass: update dependencies to use global IDs
+	// Second pass: update dependencies and reference strings to use global IDs
 	for _, taskID := range taskIDs {
 		task := s.tasks[taskID]
 		updatedDeps := make([]int, 0, len(task.Dependencies))
@@ -112,6 +112,24 @@ func (s *Storage) AddTasks(exprID int, tasks []models.Task) error {
 		}
 
 		task.Dependencies = updatedDeps
+
+		// Обновляем ссылки на результаты в аргументах задачи
+		if len(task.Arg1) > 4 && task.Arg1[:4] == "res:" {
+			if tempID, err := strconv.Atoi(task.Arg1[4:]); err == nil {
+				if actualID, exists := tempToActualID[tempID]; exists {
+					task.Arg1 = fmt.Sprintf("res:%d", actualID)
+				}
+			}
+		}
+
+		if len(task.Arg2) > 4 && task.Arg2[:4] == "res:" {
+			if tempID, err := strconv.Atoi(task.Arg2[4:]); err == nil {
+				if actualID, exists := tempToActualID[tempID]; exists {
+					task.Arg2 = fmt.Sprintf("res:%d", actualID)
+				}
+			}
+		}
+
 		task.IsReady = len(task.Dependencies) == 0
 		s.tasks[taskID] = task
 	}
@@ -145,9 +163,9 @@ func (s *Storage) GetReadyTask() (*models.Task, error) {
 				taskIDStr := taskToReturn.Arg1[4:]
 				taskID, err := strconv.Atoi(taskIDStr)
 				if err == nil {
-					// Ищем задачу с этим ID в том же выражении
+					// Ищем задачу с этим ID, проверка на ExpressionID убрана
 					depTask, exists := s.tasks[taskID]
-					if exists && depTask.ExpressionID == taskToReturn.ExpressionID && depTask.Result != nil {
+					if exists && depTask.Result != nil {
 						taskToReturn.Arg1 = fmt.Sprintf("%f", *depTask.Result)
 					}
 				}
@@ -157,9 +175,9 @@ func (s *Storage) GetReadyTask() (*models.Task, error) {
 				taskIDStr := taskToReturn.Arg2[4:]
 				taskID, err := strconv.Atoi(taskIDStr)
 				if err == nil {
-					// Ищем задачу с этим ID в том же выражении
+					// Ищем задачу с этим ID, проверка на ExpressionID убрана
 					depTask, exists := s.tasks[taskID]
-					if exists && depTask.ExpressionID == taskToReturn.ExpressionID && depTask.Result != nil {
+					if exists && depTask.Result != nil {
 						taskToReturn.Arg2 = fmt.Sprintf("%f", *depTask.Result)
 					}
 				}
